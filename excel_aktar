@@ -1,0 +1,135 @@
+"""
+Portföyü Excel'e Aktarma
+Detaylı raporlar oluşturur
+"""
+
+import yfinance as yf
+from datetime import datetime
+from portfoy import Portfoy
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment
+
+
+def excel_rapor_olustur(dosya_adi=None):
+    p = Portfoy()
+    
+    if not p.hisseler:
+        print("Portfoy bos, Excel olusturulmadi.")
+        return None
+    
+    if not dosya_adi:
+        dosya_adi = "portfoy_raporu_" + datetime.now().strftime('%Y%m%d_%H%M') + ".xlsx"
+    
+    print("Excel raporu olusturuluyor: " + dosya_adi)
+    
+    wb = openpyxl.Workbook()
+    ws1 = wb.active
+    ws1.title = "Portfoy Ozet"
+    
+    ws1['A1'] = "BIST AI - PORTFOY RAPORU"
+    ws1['A1'].font = Font(size=16, bold=True, color="FFFFFF")
+    ws1['A1'].fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
+    ws1.merge_cells('A1:H1')
+    
+    ws1['A2'] = "Tarih: " + datetime.now().strftime('%d.%m.%Y %H:%M')
+    ws1['A2'].font = Font(italic=True)
+    ws1.merge_cells('A2:H2')
+    
+    basliklar = ["Hisse", "Adet", "Alis Fiyati", "Guncel Fiyat", 
+                 "Maliyet (TL)", "Deger (TL)", "Kar/Zarar (TL)", "Kar/Zarar (%)"]
+    
+    for col, baslik in enumerate(basliklar, 1):
+        hucre = ws1.cell(row=4, column=col)
+        hucre.value = baslik
+        hucre.font = Font(bold=True, color="FFFFFF")
+        hucre.fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        hucre.alignment = Alignment(horizontal="center")
+    
+    row = 5
+    toplam_maliyet = 0
+    toplam_deger = 0
+    
+    for h in p.hisseler:
+        sembol = h["sembol"]
+        sembol_yf = sembol + ".IS"
+        
+        try:
+            ticker = yf.Ticker(sembol_yf)
+            veri = ticker.history(period="5d")
+            
+            if len(veri) < 1:
+                continue
+            
+            guncel = float(veri['Close'].iloc[-1])
+            maliyet = h["adet"] * h["alis_fiyati"]
+            deger = h["adet"] * guncel
+            kar = deger - maliyet
+            kar_yuzde = (kar / maliyet) * 100 if maliyet > 0 else 0
+            
+            toplam_maliyet += maliyet
+            toplam_deger += deger
+            
+            ws1.cell(row=row, column=1, value=sembol)
+            ws1.cell(row=row, column=2, value=h["adet"])
+            ws1.cell(row=row, column=3, value=h["alis_fiyati"])
+            ws1.cell(row=row, column=4, value=round(guncel, 2))
+            ws1.cell(row=row, column=5, value=round(maliyet, 2))
+            ws1.cell(row=row, column=6, value=round(deger, 2))
+            ws1.cell(row=row, column=7, value=round(kar, 2))
+            ws1.cell(row=row, column=8, value=round(kar_yuzde, 2))
+            
+            if kar >= 0:
+                renk = "C6EFCE"
+            else:
+                renk = "FFC7CE"
+            
+            for col in range(1, 9):
+                ws1.cell(row=row, column=col).fill = PatternFill(
+                    start_color=renk, end_color=renk, fill_type="solid"
+                )
+            
+            row += 1
+        
+        except Exception as e:
+            print("Hata: " + str(e))
+    
+    toplam_kar = toplam_deger - toplam_maliyet
+    toplam_kar_yuzde = (toplam_kar / toplam_maliyet * 100) if toplam_maliyet > 0 else 0
+    
+    ws1.cell(row=row + 1, column=1, value="TOPLAM")
+    ws1.cell(row=row + 1, column=1).font = Font(bold=True)
+    ws1.cell(row=row + 1, column=5, value=round(toplam_maliyet, 2))
+    ws1.cell(row=row + 1, column=6, value=round(toplam_deger, 2))
+    ws1.cell(row=row + 1, column=7, value=round(toplam_kar, 2))
+    ws1.cell(row=row + 1, column=8, value=round(toplam_kar_yuzde, 2))
+    
+    for col in range(1, 9):
+        ws1.cell(row=row + 1, column=col).font = Font(bold=True)
+        ws1.cell(row=row + 1, column=col).fill = PatternFill(
+            start_color="FFD966", end_color="FFD966", fill_type="solid"
+        )
+    
+    ws1.column_dimensions['A'].width = 12
+    ws1.column_dimensions['B'].width = 10
+    ws1.column_dimensions['C'].width = 12
+    ws1.column_dimensions['D'].width = 14
+    ws1.column_dimensions['E'].width = 14
+    ws1.column_dimensions['F'].width = 14
+    ws1.column_dimensions['G'].width = 16
+    ws1.column_dimensions['H'].width = 16
+    
+    wb.save(dosya_adi)
+    
+    print("Excel dosyasi kaydedildi: " + dosya_adi)
+    print("Hisse sayisi: " + str(len(p.hisseler)))
+    
+    return dosya_adi
+
+
+if __name__ == "__main__":
+    dosya = excel_rapor_olustur()
+    
+    if dosya:
+        print("\nRapor hazir!")
+    
+    input("\nCikmak icin Enter'a basin...")

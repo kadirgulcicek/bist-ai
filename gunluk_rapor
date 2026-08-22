@@ -1,0 +1,138 @@
+"""
+Günlük Telegram Raporu
+Her sabah otomatik portföy özeti gönderir
+"""
+
+import yfinance as yf
+from datetime import datetime
+from portfoy import Portfoy
+from telegram_bot import BISTTelegramBot
+
+# BURAYA KENDİ BİLGİLERİNİZİ YAZIN
+TOKEN = "BURAYA_TOKEN"
+CHAT_ID = "BURAYA_CHAT_ID"
+
+
+def portfoy_raporu_hazirla():
+    """Portföy raporunu hazırlar"""
+    p = Portfoy()
+    
+    if not p.hisseler:
+        return None
+    
+    sonuclar = []
+    toplam_maliyet = 0
+    toplam_deger = 0
+    
+    for h in p.hisseler:
+        sembol = h["sembol"]
+        sembol_yf = f"{sembol}.IS"
+        
+        try:
+            ticker = yf.Ticker(sembol_yf)
+            veri = ticker.history(period="5d")
+            
+            if len(veri) < 2:
+                continue
+            
+            guncel = float(veri['Close'].iloc[-1])
+            dun = float(veri['Close'].iloc[-2])
+            gunluk_degisim = ((guncel - dun) / dun) * 100
+            
+            maliyet = h["adet"] * h["alis_fiyati"]
+            deger = h["adet"] * guncel
+            kar = deger - maliyet
+            kar_yuzde = (kar / maliyet) * 100 if maliyet > 0 else 0
+            
+            toplam_maliyet += maliyet
+            toplam_deger += deger
+            
+            sonuclar.append({
+                "sembol": sembol,
+                "adet": h["adet"],
+                "guncel": round(guncel, 2),
+                "gunluk_degisim": round(gunluk_degisim, 2),
+                "kar_tl": round(kar, 2),
+                "kar_yuzde": round(kar_yuzde, 2)
+            })
+        
+        except Exception as e:
+            print(f"⚠️ {sembol}: {e}")
+    
+    return {
+        "sonuclar": sonuclar,
+        "toplam_maliyet": toplam_maliyet,
+        "toplam_deger": toplam_deger,
+        "toplam_kar": toplam_deger - toplam_maliyet,
+        "toplam_kar_yuzde": ((toplam_deger - toplam_maliyet) / toplam_maliyet * 100) if toplam_maliyet > 0 else 0
+    }
+
+
+def telegram_raporu_gonder():
+    """Telegram'a günlük rapor gönderir"""
+    print(f"[{datetime.now()}] 📊 Günlük rapor hazırlanıyor...")
+    
+    analiz = portfoy_raporu_hazirla()
+    
+    if not analiz:
+        print("📭 Portföy boş, rapor gönderilmedi.")
+        return False
+    
+    bot = BISTTelegramBot(TOKEN, CHAT_ID)
+    
+    # Telegram mesajı oluştur
+    toplam_kar = analiz["toplam_kar"]
+    toplam_kar_yuzde = analiz["toplam_kar_yuzde"]
+    emoji = "✅" if toplam_kar >= 0 else "📉"
+    
+    mesaj = f"""💼 <b>GÜNLÜK PORTFÖY RAPORU</b>
+🕐 {datetime.now().strftime('%d.%m.%Y %H:%M')}
+
+💰 <b>Toplam Değer:</b> {analiz['toplam_deger']:,.2f} TL
+💵 <b>Maliyet:</b> {analiz['toplam_maliyet']:,.2f} TL
+{emoji} <b>Kâr:</b> {toplam_kar:+,.2f} TL ({toplam_kar_yuzde:+.2f}%)
+
+📊 <b>Hisseler:</b>
+"""
+    
+    # Hisseleri sırala (en çok kârdan en çok zarara)
+    sirali = sorted(analiz["sonuclar"], key=lambda x: x["kar_yuzde"], reverse=True)
+    
+    for s in sirali:
+        e = "✅" if s["kar_tl"] >= 0 else "📉"
+        gunluk_e = "📈" if s["gunluk_degisim"] > 0 else "📉" if s["gunluk_degisim"] < 0 else "➖"
+        
+        mesaj += f"\n{e} <b>{s['sembol']}</b>: {s['adet']} adet"
+        mesaj += f"\n   Fiyat: {s['guncel']} TL {gunluk_e} ({s['gunluk_degisim']:+.2f}%)"
+        mesaj += f"\n   Kâr: {s['kar_tl']:+,.0f} TL ({s['kar_yuzde']:+.2f}%)"
+        mesaj += "\n"
+    
+    # En iyi ve en kötü
+    if len(sirali) > 1:
+        en_iyi = sirali[0]
+        en_kotu = sirali[-1]
+        
+        mesaj += f"\n🏆 <b>En İyi:</b> {en_iyi['sembol']} ({en_iyi['kar_yuzde']:+.2f}%)"
+        mesaj += f"\n📉 <b>En Kötü:</b> {en_kotu['sembol']} ({en_kotu['kar_yuzde']:+.2f}%)"
+    
+    mesaj += f"\n\n⚠️ <i>Bu yatırım tavsiyesi değildir.</i>"
+    
+    # Gönder
+    if bot.mesaj_gonder_sync(mesaj):
+        print(f"[{datetime.now()}] ✅ Rapor Telegram'a gönderildi!")
+        return True
+    else:
+        print(f"[{datetime.now()}] ❌ Rapor gönderilemedi!")
+        return False
+
+
+if __name__ == "__main__":
+    basarili = telegram_raporu_gonder()
+    
+    if not basarili:
+        print("\n💡 Kontrol edin:")
+        print("   1. TOKEN doğru mu?")
+        print("   2. CHAT_ID doğru mu?")
+        print("   3. Portföyde hisse var mı? (portfoy.py ile ekleyin)")
+    
+    input("\nÇıkmak için Enter'a basın...")

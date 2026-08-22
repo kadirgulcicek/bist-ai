@@ -1,0 +1,263 @@
+"""
+Portföy Grafikleri
+Görsel raporlar oluşturur
+"""
+
+import yfinance as yf          # YFinance'den hisse verilerini almak için
+import matplotlib.pyplot as plt # Grafikleri çizmek için
+from datetime import datetime, timedelta # Tarih işlemleri için
+
+# -----------------------------------------------------
+# 1. Portföy Sınıfı (portfoy.py'den import edilebilir)
+# -----------------------------------------------------
+class Portfoy:
+    def __init__(self):
+        self.hisseler = [
+            # Dict içindeki anahtarlar grafik koduna göre ayarlanmalı
+            {"sembol": "AKBNK", "adet": 10, "alis_fiyati": 15.20},
+            {"sembol": "GARAN", "adet": 20, "alis_fiyati": 12.45}
+        ]
+
+# -----------------------------------------------------
+# 2. Fonksiyonlar
+# -----------------------------------------------------
+
+def portfoy_dagilim_grafigi():
+    """Portföy dağılımı pasta grafik"""
+    p = Portfoy()
+    
+    # Portföy boşsa uyarı verip çık
+    if not p.hisseler:
+        print("Portföy boş!")
+        return None
+    
+    print("Dağılım grafiği oluşturuluyor...")
+    
+    hisseler = []
+    degerler = []
+    
+    for h in p.hisseler:
+        try:
+            # YFinance için ".IS" eki HNX/HMX hisselerine eklenebilir
+            ticker = yf.Ticker(h["sembol"] + ".IS")
+            veri = ticker.history(period="5d")  # Son 5 gün verisi
+            
+            if len(veri) < 1:  # Veri alınamazsa atla
+                continue
+            
+            guncel = float(veri['Close'].iloc[-1]) # Son kapanış fiyatı
+            deger = h["adet"] * guncel               # Toplam değer
+            
+            hisseler.append(h["sembol"])
+            degerler.append(deger)
+        except Exception as e:
+            print(f"{h['sembol']} için veri alınamadı: {e}")
+            continue
+    
+    if not degerler:
+        print("Veri alınamadı!")
+        return None
+    
+    # Renkler listesi (sadece ihtiyacın kadar alınır)
+    renkler = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8',
+               '#F7DC6F', '#BB8FCE', '#85C1E2', '#F8B739', '#52BE80']
+    
+    plt.figure(figsize=(10, 8))
+    plt.pie(degerler, labels=hisseler, autopct='%1.1f%%',
+            colors=renkler[:len(hisseler)], startangle=90)
+    plt.title('Portföy Dağılımı', fontsize=16, fontweight='bold')
+    plt.axis('equal')  # Dairesel görünüm için
+    
+    # Grafiği datetime ile benzersiz isimli dosyaya kaydet
+    dosya = 'portfoy_daglilimi_' + datetime.now().strftime('%Y%m%d_%H%M') + '.png'
+    plt.savefig(dosya, dpi=150, bbox_inches='tight')
+    plt.close()
+    
+    print("Kaydedildi: " + dosya)
+    return dosya
+
+
+def kar_zarar_grafigi():
+    """Her hissenin kâr/zarar bar grafiği"""
+    p = Portfoy()
+    
+    if not p.hisseler:
+        print("Portföy boş!")
+        return None
+    
+    print("Kar/Zarar grafiği oluşturuluyor...")
+    
+    hisseler = []
+    kar_yuzdeler = []
+    renkler = []
+    
+    for h in p.hisseler:
+        try:
+            ticker = yf.Ticker(h["sembol"] + ".IS")
+            veri = ticker.history(period="5d")
+            if len(veri) < 1:
+                continue
+            
+            guncel = float(veri['Close'].iloc[-1])
+            # Kâr/zarar yüzdesi formülü
+            kar_yuzde = ((guncel - h["alis_fiyati"]) / h["alis_fiyati"]) * 100
+            
+            hisseler.append(h["sembol"])
+            kar_yuzdeler.append(kar_yuzde)
+            # Kar için yeşil, zarar için kırmızı
+            renkler.append('#27AE60' if kar_yuzde >= 0 else '#E74C3C')
+        
+        except Exception as e:
+            print(f"{h['sembol']} hatalı: {e}")
+            continue
+    
+    if not hisseler:
+        return None
+    
+    plt.figure(figsize=(12, 6))
+    bars = plt.bar(hisseler, kar_yuzdeler, color=renkler)
+    
+    # Her çubuk üzerindeki değeri yaz
+    for bar, val in zip(bars, kar_yuzdeler):
+        height = bar.get_height()
+        plt.text(bar.get_x() + bar.get_width()/2., height,
+                f'{val:+.1f}%',   # + işareti ile +/- gösterimi
+                ha='center', va='bottom' if height >= 0 else 'top',
+                fontweight='bold')
+    
+    plt.title('Hisse Bazlı Kar/Zarar (%)', fontsize=14, fontweight='bold')
+    plt.xlabel('Hisseler')
+    plt.ylabel('Kar/Zarar (%)')
+    plt.axhline(y=0, color='black', linestyle='-', linewidth=0.5) # Sıfır çizgisi
+    plt.grid(axis='y', alpha=0.3)
+    plt.xticks(rotation=45) # İsimlerin okunabilir olması için döndür
+    plt.tight_layout()
+    
+    dosya = 'kar_zarar_' + datetime.now().strftime('%Y%m%d_%H%M') + '.png'
+    plt.savefig(dosya, dpi=150, bbox_inches='tight')
+    plt.close()
+    
+    print("Kaydedildi: " + dosya)
+    return dosya
+
+
+def fiyat_grafigi(sembol, gun=30):
+    """Tek bir hissenin fiyat hareketi grafiği"""
+    print(sembol + " fiyat grafiği oluşturuluyor...")
+    
+    symbol_yf = sembol + ".IS"
+    
+    try:
+        ticker = yf.Ticker(symbol_yf)
+        # yfinance period yerine date hesapla (daha uyumlu)
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=gun)
+        veri = ticker.history(start=start_date, end=end_date)
+        
+        if len(veri) < 2:  # En az 2 veri noktası gerekir
+            print("Yetersiz veri!")
+            return None
+        
+        plt.figure(figsize=(12, 6))
+        plt.plot(veri.index, veri['Close'], linewidth=2, color='#2E86DE')
+        plt.fill_between(veri.index, veri['Close'], alpha=0.3, color='#2E86DE')
+        
+        plt.title(sembol + ' - Son ' + str(gun) + ' Gün Fiyat Hareketi', 
+                  fontsize=14, fontweight='bold')
+        plt.xlabel('Tarih')
+        plt.ylabel('Fiyat (TL)')
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+        
+        dosya = sembol + '_fiyat_' + datetime.now().strftime('%Y%m%d_%H%M') + '.png'
+        plt.savefig(dosya, dpi=150, bbox_inches='tight')
+        plt.close()
+        
+        print("Kaydedildi: " + dosya)
+        return dosya
+    
+    except Exception as e:
+        print("Hata: " + str(e))
+        return None
+
+
+def tum_grafikler():
+    """Tüm grafikleri tek başına çağır"""
+    print("=" * 50)
+    print("GRAFIK OLUŞTURMA")
+    print("=" * 50)
+    
+    olusturulanlar = []
+    
+    # 1. Dağılım grafiği
+    dosya1 = portfoy_dagilim_grafigi()
+    if dosya1:
+        olusturulanlar.append(dosya1)
+    
+    # 2. Kar/Zarar grafiği
+    dosya2 = kar_zarar_grafigi()
+    if dosya2:
+        olusturulanlar.append(dosya2)
+    
+    # 3. İlk hissenin fiyat grafiği
+    p = Portfoy()
+    if p.hisseler:
+        try:
+            ilk_hisse = p.hisseler[0]["sembol"]
+            dosya3 = fiyat_grafigi(ilk_hisse)
+            if dosya3:
+                olusturulanlar.append(dosya3)
+        except KeyError:
+            print("Dictionary içinde 'sembol' anahtarı yok!")
+    
+    if olusturulanlar:
+        print("\nToplam " + str(len(olusturulanlar)) + " grafik oluşturuldu:")
+        for d in olusturulanlar:
+            print("  - " + d)
+    else:
+        print("\nHiç grafik oluşturulamadı.")
+    
+    return olusturulanlar
+
+
+# -----------------------------------------------------
+# 3. Ana Program Menüsü
+# -----------------------------------------------------
+
+if __name__ == "__main__":
+    print("=" * 50)
+    print("PORTFOY GRAFIKLERİ")
+    print("=" * 50)
+    print("1. Tüm grafikleri oluştur")
+    print("2. Sadece dağılım grafiği")
+    print("3. Sadece kar/zarar grafiği")
+    print("4. Belirli hissenin fiyat grafiği")
+    print("5. Çıkış")
+    
+    while True:
+        secim = input("\nSeçiminiz (1-5): ").strip()
+        
+        if secim == "1":
+            tum_grafikler()
+        elif secim == "2":
+            portfoy_dagilim_grafigi()
+        elif secim == "3":
+            kar_zarar_grafigi()
+        elif secim == "4":
+            s = input("Hisse sembolü (örn: AKBNK): ").strip()
+            g = input("Kaç gün? (örnek: 30): ").strip()
+            if not g:
+                g = 30
+            else:
+                try:
+                    g = int(g)
+                except ValueError:
+                    print("Geçersiz sayı!")
+                    continue
+            fiyat_grafigi(s, g)
+        elif secim == "5":
+            break
+        else:
+            print("Lütfen 1 ile 5 arasında bir sayı girin!")
+    
+    input("\nÇıkmak için Enter'a basın...")

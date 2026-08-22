@@ -1,0 +1,146 @@
+import numpy as np
+import pandas as pd
+
+
+def calculate_backtest_metrics(
+    df: pd.DataFrame,
+    returns_col: str = "returns",
+    trades_col: str = "trade_pnl",
+    risk_free_rate: float = 0.45,
+    trading_days: int = 252,
+) -> dict:
+    """BIST verileri ve model performans çıktıları için temel backtest metriklerini hesaplar.
+
+    Parameters:
+    -----------
+    df : pd.DataFrame
+        Tarih indeksli, günlük getirileri ve işlem kâr/zararlarını içeren DataFrame.
+    returns_col : str
+        Günlük oransal portföy/strateji getirilerinin bulunduğu sütun adı (Örn: 0.015 = %1.5).
+    trades_col : str
+        Kapanan her bir işlemin net PnL (Kâr/Zarar) tutarını veya oranını içeren sütun adı.
+    risk_free_rate : float
+        Yıllık risksiz faiz oranı (Örn: %45 için 0.45).
+    trading_days : int
+        Yıllık borsa işlem günü sayısı (BIST için genelde 252 alınır).
+
+    Returns:
+    --------
+    dict : Hesaplanan finansal metrikler.
+    """
+    returns = df[returns_col].dropna()
+
+    # ---------------------------------------------------------
+    # 1. SHARPE ORANI HESAPLAMASI
+    # ---------------------------------------------------------
+    # Günlük risksiz faiz oranının hesaplanması
+    daily_rf = (1 + risk_free_rate) ** (1 / trading_days) - 1
+
+    # Fazladan günlük getiri (Excess Return)
+    excess_returns = returns - daily_rf
+
+    # Yıllıklandırılmış Sharpe Oranı
+    std_dev = returns.std()
+    if std_dev != 0:
+        sharpe_ratio = (
+            excess_returns.mean() / std_dev
+        ) * np.sqrt(trading_days)
+    else:
+        sharpe_ratio = 0.0
+
+    # ---------------------------------------------------------
+    # 2. MAXIMUM DRAWDOWN (MAX DD) HESAPLAMASI
+    # ---------------------------------------------------------
+    # Kumulatif Portföy Büyüme Eğrisi (Equity Curve)
+    cum_returns = (1 + returns).cumprod()
+
+    # O ana kadar görülen en yüksek portföy değeri (Running Max)
+    running_max = cum_returns.cummax()
+
+    # Zirveden olan düşüş oranı (Drawdown dizisi)
+    drawdowns = (cum_returns - running_max) / running_max
+
+    # En derin düşüş (Maksimum Kayıp)
+    max_drawdown = drawdowns.min()
+
+    # ---------------------------------------------------------
+    # 3. PROFIT FACTOR VE WIN RATE HESAPLAMASI
+    # ---------------------------------------------------------
+    if trades_col in df.columns:
+        trades = df[trades_col].dropna()
+        trades = trades[trades != 0]  # Sıfır olan (işlemsiz) günleri çıkar
+
+        gross_profits = trades[trades > 0].sum()
+        gross_losses = abs(trades[trades < 0].sum())
+
+        # Profit Factor
+        if gross_losses != 0:
+            profit_factor = gross_profits / gross_losses
+        else:
+            profit_factor = np.nan  # Hiç zarar eden işlem yoksa
+
+        # İsabet Oranı (Win Rate)
+        win_rate = (
+            (len(trades[trades > 0]) / len(trades)) if len(trades) > 0 else 0.0
+        )
+        total_trades = len(trades)
+    else:
+        profit_factor = np.nan
+        win_rate = np.nan
+        total_trades = 0
+
+    # Yıllıklandırılmış Toplam Getiri
+    total_return = cum_returns.iloc[-1] - 1
+    cagr = (cum_returns.iloc[-1]) ** (trading_days / len(returns)) - 1
+
+    return {
+        "Toplam Getiri (%)": round(total_return * 100, 2),
+        "Yıllıklandırılmış Getiri (CAGR %)": round(cagr * 100, 2),
+        "Sharpe Oranı": round(sharpe_ratio, 2),
+        "Max Drawdown (%)": round(max_drawdown * 100, 2),
+        "Profit Factor": (
+            round(profit_factor, 2)
+            if not np.isnan(profit_factor)
+            else "Hesaplanamadı"
+        ),
+        "İsabet Oranı (Win Rate %)": round(win_rate * 100, 2),
+        "Toplam İşlem Sayısı": total_trades,
+    }
+
+
+# =========================================================
+# ÖRNEK KULLANIM (Simüle Edilmiş BIST Verisi Üzerinde)
+# =========================================================
+if __name__ == "__main__":
+    np.random.seed(42)
+    dates = pd.date_range(start="2024-01-01", periods=252, freq="B")
+
+    # Yapay Zeka Modelinin Günlük Tahminli Getirileri (Rastgele Simülasyon)
+    # Ortalama günlük %0.15 getiri, %1.8 volatilite, %0.08 komisyon/kayma kesintisi
+    simulated_returns = (
+        np.random.normal(loc=0.0015, scale=0.018, size=252) - 0.0008
+    )
+
+    # İşlem bazlı PnL simülasyonu
+    simulated_trade_pnl = np.where(
+        np.random.rand(252) > 0.4,
+        simulated_returns,
+        -abs(simulated_returns),
+    )
+
+    sample_df = pd.DataFrame(
+        {"returns": simulated_returns, "trade_pnl": simulated_trade_pnl},
+        index=dates,
+    )
+
+    # %45 Yıllık Risksiz Faiz Oranı ile hesaplama
+    results = calculate_backtest_metrics(
+        sample_df,
+        returns_col="returns",
+        trades_col="trade_pnl",
+        risk_free_rate=0.45,
+    )
+
+    print("=== MODEL BACKTEST SONUÇLARI ===")
+    for key, value in results.items():
+        print(f"{key:<35}: {value}")

@@ -1,0 +1,204 @@
+"""
+Stop-Loss Uyarı Sistemi
+Hisseler zarar limitine ulaşınca Telegram'dan uyarı gönderir
+"""
+
+import json
+import os
+import yfinance as yf
+from datetime import datetime
+from portfoy import Portfoy
+from telegram_bot import BISTTelegramBot
+
+# BURAYA KENDİ BİLGİLERİNİZİ YAZIN
+TOKEN = "BURAYA_TOKEN"
+CHAT_ID = "BURAYA_CHAT_ID"
+
+
+class StopLossSistemi:
+    def __init__(self):
+        self.dosya = "stop_loss.json"
+        self.kurallar = self.yukle()
+        self.bot = BISTTelegramBot(TOKEN, CHAT_ID)
+        self.uyarilan = self.uyari_durumu_yukle()
+    
+    def yukle(self):
+        if os.path.exists(self.dosya):
+            with open(self.dosya, "r", encoding="utf-8") as f:
+                return json.load(f)
+        return []
+    
+    def kaydet(self):
+        with open(self.dosya, "w", encoding="utf-8") as f:
+            json.dump(self.kurallar, f, indent=2, ensure_ascii=False)
+    
+    def uyari_durumu_yukle(self):
+        dosya = "uyarildi.json"
+        if os.path.exists(dosya):
+            with open(dosya, "r", encoding="utf-8") as f:
+                return json.load(f)
+        return {}
+    
+    def uyari_durumu_kaydet(self):
+        with open("uyarildi.json", "w", encoding="utf-8") as f:
+            json.dump(self.uyarilan, f, indent=2, ensure_ascii=False)
+    
+    def kural_ekle(self, sembol, zarar_yuzde):
+        """
+        Stop-loss kuralı ekler
+        zarar_yuzde: Örneğin -10 (%10 zarar olunca uyar)
+        """
+        sembol = sembol.upper().replace(".IS", "")
+        self.kurallar.append({
+            "sembol": sembol,
+            "zarar_limit": zarar_yuzde,
+            "aktif": True,
+            "ekleme": datetime.now().strftime("%Y-%m-%d %H:%M")
+        })
+        self.kaydet()
+        print(f"✅ {sembol}: %{zarar_yuzde} zarar olunca uyarı verecek")
+    
+    def kural_sil(self, sembol):
+        sembol = sembol.upper().replace(".IS", "")
+        self.kurallar = [k for k in self.kurallar if k["sembol"] != sembol]
+        self.kaydet()
+        print(f"✅ {sembol} kuralı silindi")
+    
+    def kontrol_et(self):
+        """Tüm kuralları kontrol eder, gerekirse uyarı gönderir"""
+        if not self.kurallar:
+            return []
+        
+        portfoy = Portfoy()
+        uyarilar = []
+        
+        for kural in self.kurallar:
+            if not kural["aktif"]:
+                continue
+            
+            sembol = kural["sembol"]
+            limit = kural["zarar_limit"]
+            
+            # Portföyde bu hisseden var mı?
+            hisse_bilgi = None
+            for h in portfoy.hisseler:
+                if h["sembol"] == sembol:
+                    hisse_bilgi = h
+                    break
+            
+            if not hisse_bilgi:
+                continue
+            
+            # Güncel fiyatı çek
+            try:
+                ticker = yf.Ticker(f"{sembol}.IS")
+                veri = ticker.history(period="5d")
+                if len(veri) < 1:
+                    continue
+                
+                guncel = float(veri['Close'].iloc[-1])
+                alis = hisse_bilgi["alis_fiyati"]
+                kar_yuzde = ((guncel - alis) / alis) * 100
+                
+                # Stop-loss tetiklendi mi?
+                if kar_yuzde <= limit:
+                    anahtar = f"{sembol}_{limit}"
+                    
+                    # Her limit için sadece 1 kere uyar
+                    if not self.uyarilan.get(anahtar, False):
+                        uyari = {
+                            "sembol": sembol,
+                            "alis": alis,
+                            "guncel": guncel,
+                            "kar_yuzde": kar_yuzde,
+                            "limit": limit,
+                            "adet": hisse_bilgi["adet"],
+                            "zarar_tl": (guncel - alis) * hisse_bilgi["adet"]
+                        }
+                        uyarilar.append(uyari)
+                        self.uyarilan[anahtar] = True
+                        self.uyari_durumu_kaydet()
+            
+            except Exception as e:
+                print(f"⚠️ {sembol}: {e}")
+        
+        # Uyarıları gönder
+        if uyarilar:
+            self.telegram_uyari_gonder(uyarilar)
+        
+        return uyarilar
+    
+    def telegram_uyari_gonder(self, uyarilar):
+        """Telegram'a stop-loss uyarısı gönderir"""
+        mesaj = "🛑 <b>STOP-LOSS UYARISI!</b>\n\n"
+        mesaj += "Aşağıdaki hisseler zarar limitine ulaştı:\n\n"
+        
+        toplam_zarar = 0
+        for u in uyarilar:
+            mesaj += f"🔴 <b>{u['sembol']}</b>\n"
+            mesaj += f"   Alış: {u['alis']:.2f} TL\n"
+            mesaj += f"   Güncel: {u['guncel']:.2f} TL\n"
+            mesaj += f"   Değişim: <b>{u['kar_yuzde']:+.2f}%</b>\n"
+            mesaj += f"   Zarar: <b>{u['zarar_tl']:+,.0f} TL</b>\n"
+            mesaj += f"   Limit: %{u['limit']}\n\n"
+            toplam_zarar += u['zarar_tl']
+        
+        mesaj += f"💸 <b>Toplam Zarar: {toplam_zarar:+,.0f} TL</b>\n\n"
+        mesaj += "💡 Durumu değerlendirip satış yapmayı düşünebilirsiniz."
+        
+        self.bot.mesaj_gonder_sync(mesaj)
+        print(f"� {len(uyarilar)} stop-loss uyarısı gönderildi!")
+    
+    def liste_goster(self):
+        """Aktif kuralları gösterir"""
+        aktif = [k for k in self.kurallar if k["aktif"]]
+        
+        print("\n" + "=" * 50)
+        print("🛑 STOP-LOSS KURALLARI")
+        print("=" * 50)
+        
+        if not aktif:
+            print("Aktif kural yok.")
+        else:
+            for k in aktif:
+                print(f"🔴 {k['sembol']}: %{k['zarar_limit']} zarar olunca uyar")
+        print("=" * 50)
+
+
+if __name__ == "__main__":
+    stop = StopLossSistemi()
+    
+    print("=" * 50)
+    print("🛑 STOP-LOSS SİSTEMİ")
+    print("=" * 50)
+    print("1. Kural Ekle")
+    print("2. Kuralları Göster")
+    print("3. Kontrol Et (Şimdi)")
+    print("4. Kural Sil")
+    print("5. Çıkış")
+    
+    while True:
+        secim = input("\nSeçiminiz (1-5): ").strip()
+        
+        if secim == "1":
+            s = input("Hisse (örn: THYAO): ").strip()
+            z = float(input("Zarar limiti (% örn: -10): "))
+            stop.kural_ekle(s, z)
+        
+        elif secim == "2":
+            stop.liste_goster()
+        
+        elif secim == "3":
+            print("🔍 Kontrol ediliyor...")
+            uyarilar = stop.kontrol_et()
+            if uyarilar:
+                print(f"🛑 {len(uyarilar)} uyarı tetiklendi!")
+            else:
+                print("✅ Limit aşımı yok, her şey yolunda.")
+        
+        elif secim == "4":
+            s = input("Silinecek hisse: ").strip()
+            stop.kural_sil(s)
+        
+        elif secim == "5":
+            break

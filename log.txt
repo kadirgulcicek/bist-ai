@@ -1,0 +1,33 @@
+[Per 20.08.2026 19:01:00,62] Sistem baslatiliyor... 
+==================================================
+Traceback (most recent call last):
+  File "C:\Users\Acer\Desktop\BIST_AI\gunluk_bildirim.py", line 95, in <module>
+    print("\u23f0 GÜNLÜK BÝLDÝRÝM SÝSTEMÝ")
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Acer\AppData\Local\Python\pythoncore-3.14-64\Lib\encodings\cp1254.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u23f0' in position 0: character maps to <undefined>
+[Per 20.08.2026 19:01:06,97] Sistem durdu. 
+[Per 20.08.2026 19:01:53,51] Sistem baslatiliyor... 
+==================================================
+Traceback (most recent call last):
+  File "C:\Users\Acer\Desktop\BIST_AI\gunluk_bildirim.py", line 95, in <module>
+    print("\u23f0 GÜNLÜK BÝLDÝRÝM SÝSTEMÝ")
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Acer\AppData\Local\Python\pythoncore-3.14-64\Lib\encodings\cp1254.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u23f0' in position 0: character maps to <undefined>
+[Per 20.08.2026 19:01:59,57] Sistem durdu. 
+[Per 20.08.2026 19:08:31,29] Sistem baslatiliyor... 
+==================================================
+Traceback (most recent call last):
+  File "C:\Users\Acer\Desktop\BIST_AI\gunluk_bildirim.py", line 95, in <module>
+    print("\u23f0 GÜNLÜK BÝLDÝRÝM SÝSTEMÝ")
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Acer\AppData\Local\Python\pythoncore-3.14-64\Lib\encodings\cp1254.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u23f0' in position 0: character maps to <undefined>
+[Per 20.08.2026 19:08:37,44] Sistem durdu. 

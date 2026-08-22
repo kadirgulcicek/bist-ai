@@ -1,0 +1,141 @@
+"""
+İşlem Geçmişi - Her alım/satım kaydedilir
+"""
+
+import json
+import os
+from datetime import datetime
+
+
+class IslemGecmisi:
+    def __init__(self):
+        self.dosya = "islemler.json"
+        self.islemler = self.yukle()
+    
+    def yukle(self):
+        if os.path.exists(self.dosya):
+            with open(self.dosya, "r", encoding="utf-8") as f:
+                return json.load(f)
+        return []
+    
+    def kaydet(self):
+        with open(self.dosya, "w", encoding="utf-8") as f:
+            json.dump(self.islemler, f, indent=2, ensure_ascii=False)
+    
+    def islem_ekle(self, sembol, islem_tipi, adet, fiyat):
+        """
+        Yeni işlem ekler
+        islem_tipi: "ALIS" veya "SATIS"
+        """
+        sembol = sembol.upper().replace(".IS", "")
+        islem_tipi = islem_tipi.upper()
+        
+        toplam = adet * fiyat
+        
+        self.islemler.append({
+            "tarih": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "sembol": sembol,
+            "tip": islem_tipi,
+            "adet": adet,
+            "fiyat": fiyat,
+            "toplam": round(toplam, 2)
+        })
+        self.kaydet()
+        
+        emoji = "🟢" if islem_tipi == "ALIS" else "🔴"
+        print(f"✅ {emoji} {islem_tipi}: {sembol} - {adet} adet @ {fiyat} TL = {toplam:,.2f} TL")
+    
+    def gecmis_goster(self, sembol=None):
+        """İşlem geçmişini gösterir"""
+        if not self.islemler:
+            print("📭 Henüz işlem yok!")
+            return
+        
+        # Filtre
+        liste = self.islemler
+        if sembol:
+            sembol = sembol.upper().replace(".IS", "")
+            liste = [i for i in liste if i["sembol"] == sembol]
+        
+        print("\n" + "=" * 70)
+        baslik = "📅 İŞLEM GEÇMİŞİ"
+        if sembol:
+            baslik += f" ({sembol})"
+        print(baslik)
+        print("=" * 70)
+        print(f"{'Tarih':<18}{'Hisse':<8}{'Tip':<7}{'Adet':<7}{'Fiyat':<10}{'Toplam':<12}")
+        print("-" * 70)
+        
+        for i in liste:
+            emoji = "🟢" if i["tip"] == "ALIS" else "🔴"
+            print(f"{i['tarih']:<18}{i['sembol']:<8}{emoji} {i['tip']:<5}"
+                  f"{i['adet']:<7}{i['fiyat']:<10}{i['toplam']:<12,.2f}")
+        print("=" * 70)
+        
+        # Özet
+        alislar = [i for i in liste if i["tip"] == "ALIS"]
+        satislar = [i for i in liste if i["tip"] == "SATIS"]
+        
+        toplam_alis = sum(i["toplam"] for i in alislar)
+        toplam_satis = sum(i["toplam"] for i in satislar)
+        
+        print(f"\n📊 Özet:")
+        print(f"   Toplam alış:  {toplam_alis:,.2f} TL ({len(alislar)} işlem)")
+        print(f"   Toplam satış: {topplam_satis:,.2f} TL ({len(satislar)} işlem)" if False else f"   Toplam satış: {toplam_satis:,.2f} TL ({len(satislar)} işlem)")
+    
+    def hisse_ozet(self, sembol):
+        """Bir hissenin tüm alım-satım özetini gösterir"""
+        sembol = sembol.upper().replace(".IS", "")
+        islemler = [i for i in self.islemler if i["sembol"] == sembol]
+        
+        if not islemler:
+            print(f"📭 {sembol} için işlem yok")
+            return
+        
+        alis_adet = sum(i["adet"] for i in islemler if i["tip"] == "ALIS")
+        satis_adet = sum(i["adet"] for i in islemler if i["tip"] == "SATIS")
+        net_adet = alis_adet - satis_adet
+        
+        print(f"\n📊 {sembol} Özet:")
+        print(f"   Alınan: {alis_adet} adet")
+        print(f"   Satılan: {satis_adet} adet")
+        print(f"   Net: {net_adet} adet")
+        
+        if net_adet > 0:
+            alislar = [i for i in islemler if i["tip"] == "ALIS"]
+            toplam_maliyet = sum(i["adet"] * i["fiyat"] for i in alislar)
+            ortalama = toplam_maliyet / alis_adet
+            print(f"   Ortalama maliyet: {ortalama:.2f} TL")
+
+
+if __name__ == "__main__":
+    gecmis = IslemGecmisi()
+    
+    print("=" * 50)
+    print("📅 İŞLEM GEÇMİŞİ")
+    print("=" * 50)
+    print("1. İşlem Ekle (Alış/Satış)")
+    print("2. Tüm Geçmişi Göster")
+    print("3. Hisse Bazlı Geçmiş")
+    print("4. Çıkış")
+    
+    while True:
+        secim = input("\nSeçiminiz (1-4): ").strip()
+        
+        if secim == "1":
+            s = input("Hisse: ").strip()
+            t = input("Tip (ALIS/SATIS): ").strip().upper()
+            a = int(input("Adet: "))
+            f = float(input("Fiyat: "))
+            gecmis.islem_ekle(s, t, a, f)
+        
+        elif secim == "2":
+            gecmis.gecmis_goster()
+        
+        elif secim == "3":
+            s = input("Hisse: ").strip()
+            gecmis.hisse_ozet(s)
+            gecmis.gecmis_goster(s)
+        
+        elif secim == "4":
+            break

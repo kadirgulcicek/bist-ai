@@ -1,0 +1,32 @@
+[
+  {
+    "sembol": "THYAO",
+    "adet": 61,
+    "alis_fiyati": 50.0,
+    "ekleme_tarihi": "2026-08-20"
+  },
+  {
+    "sembol": "ALFAS",
+    "adet": 50,
+    "alis_fiyati": 10.0,
+    "ekleme_tarihi": "2026-08-21"
+  },
+  {
+    "sembol": "CITAS",
+    "adet": 10,
+    "alis_fiyati": 50.0,
+    "ekleme_tarihi": "2026-08-21"
+  },
+  {
+    "sembol": "EMKEL",
+    "adet": 50,
+    "alis_fiyati": 18.22,
+    "ekleme_tarihi": "2026-08-22"
+  },
+  {
+    "sembol": "KONKA",
+    "adet": 126,
+    "alis_fiyati": 23.46,
+    "ekleme_tarihi": "2026-08-22"
+  }
+]
