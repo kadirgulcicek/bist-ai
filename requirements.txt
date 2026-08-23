@@ -7,3 +7,5 @@ matplotlib
 python-telegram-bot
 openpyxl
 scikit-learn
+numpy
+joblib
