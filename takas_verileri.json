@@ -1,0 +1,123 @@
+{
+  "THYAO": [
+    {
+      "sembol": "THYAO",
+      "tarih": "2026-08-23",
+      "yabanci_oran": 44.92,
+      "kurum_oran": 27.13,
+      "bireysel_oran": 27.95,
+      "sektor": "Havacilik",
+      "kaynak": "Yfinance+Tahmin"
+    }
+  ],
+  "GARAN": [
+    {
+      "sembol": "GARAN",
+      "tarih": "2026-08-23",
+      "yabanci_oran": 56.32,
+      "kurum_oran": 26.56,
+      "bireysel_oran": 17.12,
+      "sektor": "Bankacilik",
+      "kaynak": "Yfinance+Tahmin"
+    }
+  ],
+  "ASELS": [
+    {
+      "sembol": "ASELS",
+      "tarih": "2026-08-23",
+      "yabanci_oran": 40.1,
+      "kurum_oran": 30.19,
+      "bireysel_oran": 29.72,
+      "sektor": "Savunma",
+      "kaynak": "Yfinance+Tahmin"
+    }
+  ],
+  "TUPRS": [
+    {
+      "sembol": "TUPRS",
+      "tarih": "2026-08-23",
+      "yabanci_oran": 34.47,
+      "kurum_oran": 39.57,
+      "bireysel_oran": 25.96,
+      "sektor": "Enerji",
+      "kaynak": "Yfinance+Tahmin"
+    }
+  ],
+  "EREGL": [
+    {
+      "sembol": "EREGL",
+      "tarih": "2026-08-23",
+      "yabanci_oran": 37.99,
+      "kurum_oran": 31.14,
+      "bireysel_oran": 30.87,
+      "sektor": "Demir-Celik",
+      "kaynak": "Yfinance+Tahmin"
+    }
+  ],
+  "KCHOL": [
+    {
+      "sembol": "KCHOL",
+      "tarih": "2026-08-23",
+      "yabanci_oran": 57.02,
+      "kurum_oran": 24.32,
+      "bireysel_oran": 18.66,
+      "sektor": "Holding",
+      "kaynak": "Yfinance+Tahmin"
+    }
+  ],
+  "PETKM": [
+    {
+      "sembol": "PETKM",
+      "tarih": "2026-08-23",
+      "yabanci_oran": 37.63,
+      "kurum_oran": 38.08,
+      "bireysel_oran": 24.29,
+      "sektor": "Enerji",
+      "kaynak": "Yfinance+Tahmin"
+    }
+  ],
+  "BIMAS": [
+    {
+      "sembol": "BIMAS",
+      "tarih": "2026-08-23",
+      "yabanci_oran": 28.2,
+      "kurum_oran": 27.34,
+      "bireysel_oran": 44.46,
+      "sektor": "Perakende",
+      "kaynak": "Yfinance+Tahmin"
+    }
+  ],
+  "SISE": [
+    {
+      "sembol": "SISE",
+      "tarih": "2026-08-23",
+      "yabanci_oran": 37.93,
+      "kurum_oran": 27.29,
+      "bireysel_oran": 34.78,
+      "sektor": "Diger",
+      "kaynak": "Yfinance+Tahmin"
+    }
+  ],
+  "AKBNK": [
+    {
+      "sembol": "AKBNK",
+      "tarih": "2026-08-23",
+      "yabanci_oran": 55.13,
+      "kurum_oran": 27.22,
+      "bireysel_oran": 17.65,
+      "sektor": "Bankacilik",
+      "kaynak": "Yfinance+Tahmin"
+    }
+  ],
+  "EMKEL": [
+    {
+      "sembol": "EMKEL",
+      "tarih": "2026-08-23",
+      "yabanci_oran": 41.01,
+      "kurum_oran": 30.83,
+      "bireysel_oran": 28.16,
+      "sektor": "Diger",
+      "kaynak": "Yfinance+Tahmin"
+    }
+  ]
+}

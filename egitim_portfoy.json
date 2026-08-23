@@ -1,0 +1,68 @@
+{
+  "baslangic": 100000,
+  "nakit": 99990.10599985122,
+  "pozisyonlar": {},
+  "islem_gecmisi": [
+    {
+      "tarih": "2026-08-23 10:43",
+      "sembol": "EMKEL",
+      "tip": "ALIS",
+      "adet": 150,
+      "fiyat": 15.5,
+      "tutar": 2325.0,
+      "komisyon": 2.33
+    },
+    {
+      "tarih": "2026-08-23 10:43",
+      "sembol": "KONKA",
+      "tip": "ALIS",
+      "adet": 150,
+      "fiyat": 11.97,
+      "tutar": 1795.5,
+      "komisyon": 1.8
+    },
+    {
+      "tarih": "2026-08-23 10:44",
+      "sembol": "BUCIM",
+      "tip": "ALIS",
+      "adet": 150,
+      "fiyat": 5.51,
+      "tutar": 826.5,
+      "komisyon": 0.83
+    },
+    {
+      "tarih": "2026-08-23 10:45",
+      "sembol": "EMKEL",
+      "tip": "SATIS",
+      "adet": 150,
+      "fiyat": 15.5,
+      "tutar": 2325.0,
+      "komisyon": 2.33,
+      "kar": -2.32,
+      "kar_yuzde": -0.1
+    },
+    {
+      "tarih": "2026-08-23 10:45",
+      "sembol": "KONKA",
+      "tip": "SATIS",
+      "adet": 150,
+      "fiyat": 11.97,
+      "tutar": 1795.5,
+      "komisyon": 1.8,
+      "kar": -1.8,
+      "kar_yuzde": -0.1
+    },
+    {
+      "tarih": "2026-08-23 10:45",
+      "sembol": "BUCIM",
+      "tip": "SATIS",
+      "adet": 150,
+      "fiyat": 5.51,
+      "tutar": 826.5,
+      "komisyon": 0.83,
+      "kar": -0.83,
+      "kar_yuzde": -0.1
+    }
+  ],
+  "olusturma": "2026-08-23"
+}

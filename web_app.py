@@ -3,7 +3,7 @@ BIST AI - Web Uygulamasi (Tam Versiyon)
 Portfoy + Sektor + Risk Analizi
 """
 
-from flask import Flask, render_template_string, request, redirect, url_for
+from flask import Flask, render_template_string, request, redirect, url_for, send_from_directory
 import yfinance as yf
 from datetime import datetime
 from portfoy import Portfoy
@@ -28,6 +28,9 @@ HTML_PORTFOY = """
 <head>
     <title>BIST AI - Portfoy</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#e94560">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <style>
         body { font-family: Arial; background: #1a1a2e; color: white; margin: 0; padding: 15px; }
         .container { max-width: 800px; margin: auto; }
@@ -93,6 +96,9 @@ HTML_SEKTOR = """
 <head>
     <title>BIST AI - Sektor</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#e94560">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <style>
         body { font-family: Arial; background: #1a1a2e; color: white; margin: 0; padding: 15px; }
         .container { max-width: 800px; margin: auto; }
@@ -137,6 +143,9 @@ HTML_RISK = """
 <head>
     <title>BIST AI - Risk</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#e94560">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <style>
         body { font-family: Arial; background: #1a1a2e; color: white; margin: 0; padding: 15px; }
         .container { max-width: 800px; margin: auto; }
@@ -267,5 +276,22 @@ def telegram():
     return "Telegram entegrasyonu hazir degil."
 
 
+@app.route("/manifest.json")
+def manifest():
+    return send_from_directory(app.root_path, "manifest.json")
+
+
+@app.route("/service-worker.js")
+def service_worker():
+    return send_from_directory(
+        app.root_path,
+        "service-worker.js",
+        mimetype="application/javascript",
+    )
+
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    import os
+
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)
