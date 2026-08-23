@@ -60,6 +60,7 @@ HTML_PORTFOY = """
         </div>
         <div class="menu">
             <a href="/" class="active">Portfoy</a>
+            <a href="/panel">Panel</a>
             <a href="/sektor">Sektor</a>
             <a href="/risk">Risk</a>
             <a href="/ai">AI</a>
@@ -127,7 +128,7 @@ HTML_SEKTOR = """
     <div class="container">
         <div class="header"><h1>Sektor Analizi</h1><p>{{ tarih }}</p></div>
         <div class="menu">
-            <a href="/">Portfoy</a><a href="/sektor" class="active">Sektor</a><a href="/risk">Risk</a><a href="/ai">AI</a><a href="/telegram">Telegram</a>
+            <a href="/">Portfoy</a><a href="/panel">Panel</a><a href="/sektor" class="active">Sektor</a><a href="/risk">Risk</a><a href="/ai">AI</a><a href="/telegram">Telegram</a>
                 <a href="/sinyal">Sinyal</a>
         </div>
         <h2>Sektor Performansi</h2>
@@ -183,7 +184,7 @@ HTML_RISK = """
     <div class="container">
         <div class="header"><h1>Risk Analizi</h1><p>{{ tarih }}</p></div>
         <div class="menu">
-            <a href="/">Portfoy</a><a href="/sektor">Sektor</a><a href="/risk" class="active">Risk</a><a href="/ai">AI</a><a href="/telegram">Telegram
+            <a href="/">Portfoy</a><a href="/panel">Panel</a><a href="/sektor">Sektor</a><a href="/risk" class="active">Risk</a><a href="/ai">AI</a><a href="/telegram">Telegram
                 <a href="/sinyal">Sinyal</a>
             </a>
         </div>
@@ -238,6 +239,7 @@ HTML_AI = """
         </div>
         <div class="menu">
             <a href="/">Portfoy</a>
+            <a href="/panel">Panel</a>
             <a href="/sektor">Sektor</a>
             <a href="/risk">Risk</a>
             <a href="/ai" class="active">AI</a>
@@ -317,6 +319,7 @@ HTML_SINYAL = """
         </div>
         <div class="menu">
             <a href="/">Portfoy</a>
+            <a href="/panel">Panel</a>
             <a href="/sektor">Sektor</a>
             <a href="/risk">Risk</a>
             <a href="/ai">AI</a>
@@ -356,6 +359,85 @@ HTML_SINYAL = """
                 <p>Piyasa sakin gorunuyor.</p>
             </div>
         {% endif %}
+    </div>
+</body>
+</html>
+"""
+
+HTML_PANEL = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>BIST AI - Mega Panel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#e94560">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <style>
+        body { font-family: Arial; background: #1a1a2e; color: white; margin: 0; padding: 15px; }
+        .container { max-width: 900px; margin: auto; }
+        .header { text-align: center; padding: 20px; background: linear-gradient(135deg, #16213e, #0f3460); border-radius: 10px; margin-bottom: 15px; }
+        .header h1 { margin: 0; color: #e94560; font-size: 22px; }
+        .menu { display: flex; gap: 8px; margin: 15px 0; flex-wrap: wrap; }
+        .menu a { flex: 1; min-width: 70px; padding: 8px; background: #0f3460; color: white; text-decoration: none; border-radius: 5px; text-align: center; font-size: 13px; }
+        .menu a.active { background: #e94560; }
+        .dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .card { background: #16213e; padding: 15px; border-radius: 8px; }
+        .card h3 { margin: 0 0 10px 0; color: #4caf50; font-size: 14px; }
+        .stat-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #0f3460; font-size: 13px; }
+        .stat-row:last-child { border-bottom: none; }
+        .pozitif { color: #4caf50; }
+        .negatif { color: #f44336; }
+        .sinyal-mini { background: #0f3460; padding: 8px; margin: 5px 0; border-radius: 5px; font-size: 13px; }
+        .sinyal-mini.al { border-left: 3px solid #4caf50; }
+        .sinyal-mini.sat { border-left: 3px solid #f44336; }
+        .yenile-btn { display: block; text-align: center; padding: 12px; background: #e94560; color: white; text-decoration: none; border-radius: 8px; margin: 15px 0; font-weight: bold; }
+        @media (max-width: 600px) { .dashboard { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>BIST AI - Mega Panel</h1>
+            <p>{{ tarih }}</p>
+        </div>
+        <div class="menu">
+            <a href="/" >Portfoy</a>
+            <a href="/panel" class="active">Panel</a>
+            <a href="/sektor">Sektor</a>
+            <a href="/risk">Risk</a>
+            <a href="/ai">AI</a>
+            <a href="/sinyal">Sinyal</a>
+        </div>
+        <a href="/panel" class="yenile-btn">Yenile</a>
+        <div class="dashboard">
+            <div class="card">
+                <h3>Portfoy Durumu</h3>
+                <div class="stat-row"><span>Toplam Deger:</span><b>{{ portfoy.toplam_deger }} TL</b></div>
+                <div class="stat-row"><span>Hisse Sayisi:</span><b>{{ portfoy.hisse_sayisi }}</b></div>
+                <div class="stat-row"><span>Toplam Kar:</span><b class="{{ portfoy.renk }}">{{ portfoy.toplam_kar }} TL</b></div>
+            </div>
+            <div class="card">
+                <h3>Risk Puani</h3>
+                <div class="stat-row"><span>Cesitlendirme:</span><b>{{ risk.puan }}/100</b></div>
+                <div class="stat-row"><span>Durum:</span><b>{{ risk.durum }}</b></div>
+            </div>
+            <div class="card">
+                <h3>AI En Iyi 3 (5 gun)</h3>
+                {% for ai in ai_tahminleri[:3] %}<div class="stat-row"><span>{{ ai.sembol }}</span><b class="{{ ai.renk }}">{{ ai.degisim }}%</b></div>{% endfor %}
+            </div>
+            <div class="card">
+                <h3>Sektor En Iyiler</h3>
+                {% for s in sektorler[:3] %}<div class="stat-row"><span>{{ s.sektor }}</span><b class="{{ s.renk }}">{{ s.ortalama }}</b></div>{% endfor %}
+            </div>
+            <div class="card" style="grid-column: 1 / -1;">
+                <h3>Aktif Sinyaller</h3>
+                {% for s in sinyaller %}
+                <div class="sinyal-mini {{ s.karar|lower }}"><b>{{ s.karar }}</b> - {{ s.sembol }} - {{ s.fiyat }} TL - {{ s.oncelik }}{% if s.sebepler %}<br><small>{{ s.sebepler.0 }}</small>{% endif %}</div>
+                {% endfor %}
+                {% if not sinyaller %}<p style="color: #b0bec5;">Su an aktif sinyal yok.</p>{% endif %}
+            </div>
+        </div>
     </div>
 </body>
 </html>
@@ -536,6 +618,97 @@ def sinyal_sayfasi():
             ],
             tarih=datetime.now().strftime("%d.%m.%Y %H:%M"),
         )
+
+
+@app.route("/panel")
+def panel_sayfasi():
+    """Tum ozelliklerin ozeti tek sayfada"""
+    try:
+        portfoy = Portfoy()
+        portfoy_hisseler = []
+        toplam_deger = 0
+        toplam_maliyet = 0
+        for hisse in portfoy.hisseler:
+            deger = hisse["adet"] * hisse["alis_fiyati"]
+            toplam_deger += deger
+            toplam_maliyet += deger
+            portfoy_hisseler.append({
+                "sembol": hisse["sembol"],
+                "adet": hisse["adet"],
+                "deger": deger,
+                "sektor": HISSE_SEKTORLERI.get(hisse["sembol"], "Diger"),
+                "volatilite": 0,
+            })
+
+        toplam_kar = toplam_deger - toplam_maliyet
+        portfoy_ozet = {
+            "toplam_deger": f"{toplam_deger:,.2f}",
+            "hisse_sayisi": len(portfoy_hisseler),
+            "toplam_kar": f"{toplam_kar:,.2f}",
+            "renk": "pozitif" if toplam_kar >= 0 else "negatif",
+        }
+
+        if portfoy_hisseler and toplam_deger:
+            puan = cesitlendirme_puani(portfoy_hisseler, toplam_deger)
+        else:
+            puan = 0
+        risk_ozet = {
+            "puan": puan,
+            "durum": "Iyi" if puan >= 70 else "Orta" if puan >= 40 else "Dikkat",
+        }
+
+        ai_tahminleri = []
+        try:
+            from ensemble_model import basit_tahmin
+            for sembol in ["THYAO", "GARAN", "ASELS", "TUPRS", "EREGL"]:
+                tahminler = basit_tahmin(sembol, 5)
+                if tahminler and len(tahminler) >= 2 and tahminler[0] > 0:
+                    degisim = ((tahminler[-1] - tahminler[0]) / tahminler[0]) * 100
+                    ai_tahminleri.append({
+                        "sembol": sembol,
+                        "degisim": f"{degisim:+.2f}",
+                        "renk": "pozitif" if degisim > 0 else "negatif",
+                    })
+            ai_tahminleri.sort(key=lambda item: float(item["degisim"]), reverse=True)
+        except Exception:
+            pass
+
+        sektorler = []
+        for ad, hisseler in sektor_analiz_yap().items():
+            if hisseler:
+                ortalama = sum(hisse["gunluk"] for hisse in hisseler) / len(hisseler)
+                sektorler.append({
+                    "sektor": ad,
+                    "ortalama": f"{ortalama:+.2f}%",
+                    "renk": "pozitif" if ortalama >= 0 else "negatif",
+                })
+        sektorler.sort(key=lambda item: float(item["ortalama"].rstrip("%")), reverse=True)
+
+        sinyaller = []
+        try:
+            from gelismis_kurallar import portfoy_analiz
+            for sinyal in portfoy_analiz()[:5]:
+                sinyaller.append({
+                    "sembol": sinyal["sembol"],
+                    "fiyat": sinyal["fiyat"],
+                    "karar": sinyal["karar"],
+                    "oncelik": sinyal.get("oncelik", "DUSUK"),
+                    "sebepler": sinyal.get("sebepler", []),
+                })
+        except Exception:
+            pass
+
+        return render_template_string(
+            HTML_PANEL,
+            tarih=datetime.now().strftime("%d.%m.%Y %H:%M"),
+            portfoy=portfoy_ozet,
+            risk=risk_ozet,
+            ai_tahminleri=ai_tahminleri,
+            sektorler=sektorler,
+            sinyaller=sinyaller,
+        )
+    except Exception as e:
+        return f"<h1>Hata</h1><p>{e}</p>"
 
 
 @app.route("/telegram")
