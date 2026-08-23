@@ -85,6 +85,12 @@ HTML_PORTFOY = """
             <input name="fiyat" type="number" step="0.01" placeholder="Alis Fiyati" required>
             <button class="btn" type="submit">Ekle</button>
         </form>
+        <h2 style="margin-top: 30px; color: #f44336;">Tehlikeli Bölge</h2>
+        <a class="btn" href="/temizle"
+           style="background: #f44336;"
+           onclick="return confirm('Tüm portföy silinecek! Emin misiniz?')">
+            🗑️ Portföyü Temizle
+        </a>
     </div>
 </body>
 </html>
@@ -224,6 +230,18 @@ def index():
         kar_renk="positive" if toplam_kar >= 0 else "negative",
         hisse_sayisi=len(hisseler),
     )
+
+
+@app.route("/temizle")
+def portfoy_temizle():
+    """Portfoyu temizler"""
+    try:
+        portfoy = Portfoy()
+        portfoy.hisseler = []
+        portfoy.kaydet()
+        return redirect(url_for("index"))
+    except Exception as e:
+        return f"Hata: {e}"
 
 
 @app.route("/sektor")
