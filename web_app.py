@@ -480,6 +480,22 @@ def index():
     )
 
 
+@app.route("/ekle", methods=["POST"])
+def hisse_ekle():
+    """Yeni hisse ekle"""
+    try:
+        sembol = request.form["sembol"]
+        adet = int(request.form["adet"])
+        fiyat = float(request.form["fiyat"])
+
+        portfoy = Portfoy()
+        portfoy.hisse_ekle(sembol, adet, fiyat)
+
+        return redirect(url_for("index"))
+    except Exception as e:
+        return f"<h1>Hata</h1><p>{e}</p><a href='/'>Geri don</a>"
+
+
 @app.route("/temizle")
 def portfoy_temizle():
     """Portfoyu temizler"""
