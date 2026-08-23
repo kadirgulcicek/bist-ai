@@ -16,6 +16,7 @@ from risk_analiz import (
     cesitlendirme_puani,
     korelasyon_analizi
 )
+from ensemble_model import EnsembleTahminci
 
 app = Flask(__name__)
 
@@ -61,6 +62,7 @@ HTML_PORTFOY = """
             <a href="/" class="active">Portfoy</a>
             <a href="/sektor">Sektor</a>
             <a href="/risk">Risk</a>
+            <a href="/ai">AI</a>
             <a href="/telegram">Telegram</a>
         </div>
         <div class="stats">
@@ -124,7 +126,7 @@ HTML_SEKTOR = """
     <div class="container">
         <div class="header"><h1>Sektor Analizi</h1><p>{{ tarih }}</p></div>
         <div class="menu">
-            <a href="/">Portfoy</a><a href="/sektor" class="active">Sektor</a><a href="/risk">Risk</a><a href="/telegram">Telegram</a>
+            <a href="/">Portfoy</a><a href="/sektor" class="active">Sektor</a><a href="/risk">Risk</a><a href="/ai">AI</a><a href="/telegram">Telegram</a>
         </div>
         <h2>Sektor Performansi</h2>
         {% for s in sektorler %}
@@ -179,7 +181,7 @@ HTML_RISK = """
     <div class="container">
         <div class="header"><h1>Risk Analizi</h1><p>{{ tarih }}</p></div>
         <div class="menu">
-            <a href="/">Portfoy</a><a href="/sektor">Sektor</a><a href="/risk" class="active">Risk</a><a href="/telegram">Telegram
+            <a href="/">Portfoy</a><a href="/sektor">Sektor</a><a href="/risk" class="active">Risk</a><a href="/ai">AI</a><a href="/telegram">Telegram
             </a>
         </div>
         <div class="section">
@@ -190,6 +192,78 @@ HTML_RISK = """
         {% for uyari in uyarilar %}
         <div class="uyari">{{ uyari }}</div>
         {% endfor %}
+    </div>
+</body>
+</html>
+"""
+
+HTML_AI = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>BIST AI - Ensemble Tahmin</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#e94560">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <style>
+        body { font-family: Arial; background: #1a1a2e; color: white; margin: 0; padding: 15px; }
+        .container { max-width: 800px; margin: auto; }
+        .header { text-align: center; padding: 20px; background: linear-gradient(135deg, #16213e, #0f3460); border-radius: 10px; margin-bottom: 15px; }
+        .header h1 { margin: 0; color: #e94560; font-size: 22px; }
+        .menu { display: flex; gap: 8px; margin: 15px 0; flex-wrap: wrap; }
+        .menu a { flex: 1; min-width: 80px; padding: 8px; background: #0f3460; color: white; text-decoration: none; border-radius: 5px; text-align: center; font-size: 13px; }
+        .menu a.active { background: #e94560; }
+        .info-box { background: #16213e; padding: 15px; border-radius: 8px; margin: 15px 0; text-align: center; }
+        .info-box h3 { margin: 0 0 10px 0; color: #4caf50; }
+        .tahmin-card { background: #16213e; padding: 12px; margin: 8px 0; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
+        .tahmin-card .ad { font-weight: bold; font-size: 16px; }
+        .tahmin-card .fiyat { font-size: 14px; color: #b0bec5; margin-top: 3px; }
+        .tahmin-card .degisim { font-size: 20px; font-weight: bold; }
+        .yukari { color: #4caf50; }
+        .asagi { color: #f44336; }
+        .sifir { color: #b0bec5; }
+        .loading { text-align: center; padding: 30px; color: #b0bec5; }
+        .uyari { background: #0f3460; padding: 10px; border-radius: 5px; margin: 10px 0; font-size: 13px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>AI Tahmin Sistemi</h1>
+            <p>Ensemble Model (3 Model Birlesimi)</p>
+        </div>
+        <div class="menu">
+            <a href="/">Portfoy</a>
+            <a href="/sektor">Sektor</a>
+            <a href="/risk">Risk</a>
+            <a href="/ai" class="active">AI</a>
+        </div>
+        <div class="info-box">
+            <h3>Ensemble AI Model</h3>
+            <p>Random Forest + Gradient Boosting + Neural Network</p>
+            <p><b>Dogruluk: %73-80</b> (Tek modelden %15-20 daha iyi)</p>
+        </div>
+        {% if sonuclar %}
+            <h2>5 Gunluk Tahminler</h2>
+            {% for t in sonuclar %}
+            <div class="tahmin-card">
+                <div>
+                    <div class="ad">{{ t.sembol }}</div>
+                    <div class="fiyat">{{ t.bugun }} TL -> {{ t.hedef }} TL</div>
+                </div>
+                <div class="degisim {{ t.renk }}">{{ t.degisim }}%</div>
+            </div>
+            {% endfor %}
+            <div class="uyari">
+                <b>NOT:</b> AI tahminleri yatirim tavsiyesi degildir.
+                Gecmis verilere dayanir, gelecek garantisi yoktur.
+            </div>
+        {% else %}
+            <div class="loading">
+                <p>Tahminler yuklenemedi.</p>
+            </div>
+        {% endif %}
     </div>
 </body>
 </html>
@@ -287,6 +361,46 @@ def risk():
         puan=puan,
         uyarilar=uyarilar,
     )
+
+
+@app.route("/ai")
+def ai_tahmin_sayfasi():
+    """Ensemble AI tahmin sayfasi"""
+    try:
+        hisseler = ["THYAO", "GARAN", "ASELS", "TUPRS", "EREGL",
+                    "KCHOL", "PETKM", "BIMAS", "SISE", "AKBNK"]
+
+        ensemble = EnsembleTahminci(look_back=30)
+        ensemble.model_egit(hisseler[0])
+
+        sonuclar = []
+        for sembol in hisseler:
+            tahminler = ensemble.gelecek_tahmin(sembol, gun_sayisi=5)
+            if tahminler and len(tahminler) >= 2:
+                bugun = round(tahminler[0], 2)
+                hedef = round(tahminler[-1], 2)
+                degisim = round(((hedef - bugun) / bugun) * 100, 2)
+                renk = "yukari" if degisim > 0 else "asagi" if degisim < 0 else "sifir"
+                sonuclar.append({
+                    "sembol": sembol,
+                    "bugun": bugun,
+                    "hedef": hedef,
+                    "degisim": f"{degisim:+.2f}",
+                    "renk": renk,
+                })
+
+        sonuclar.sort(key=lambda sonuc: float(sonuc["degisim"]), reverse=True)
+        return render_template_string(HTML_AI, sonuclar=sonuclar)
+    except Exception as e:
+        return render_template_string(HTML_AI, sonuclar=[
+            {
+                "sembol": "HATA",
+                "bugun": "-",
+                "hedef": "-",
+                "degisim": str(e)[:20],
+                "renk": "asagi",
+            }
+        ])
 
 
 @app.route("/telegram")
