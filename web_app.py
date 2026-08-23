@@ -3,7 +3,15 @@ BIST AI - Web Uygulamasi (Tam Versiyon)
 Portfoy + Sektor + Risk Analizi
 """
 
-from flask import Flask, render_template_string, request, redirect, url_for, send_from_directory
+from flask import (
+    Flask,
+    make_response,
+    redirect,
+    render_template_string,
+    request,
+    send_from_directory,
+    url_for,
+)
 import yfinance as yf
 from datetime import datetime
 from portfoy import Portfoy
@@ -17,12 +25,143 @@ from risk_analiz import (
     korelasyon_analizi
 )
 from ensemble_model import EnsembleTahminci
+from auth import KullaniciYoneticisi
 
 app = Flask(__name__)
+
+kullanici_yoneticisi = KullaniciYoneticisi()
+
+
+def aktif_kullanici_al():
+    """Cookie'den aktif kullaniciyi bul"""
+    token = request.cookies.get("session_token")
+    if token:
+        return kullanici_yoneticisi.token_dogrula(token)
+    return None
+
+
+def portfoy_veri_hazirla_icin(hisseler_listesi):
+    """Verilen portfoy listesi icin veri hazirla"""
+    hisseler = []
+    toplam_maliyet = 0
+    toplam_deger = 0
+
+    for hisse in hisseler_listesi:
+        try:
+            ticker = yf.Ticker(hisse["sembol"] + ".IS")
+            veri = ticker.history(period="5d")
+            if veri is None or len(veri) < 1:
+                continue
+            guncel = float(veri["Close"].iloc[-1])
+            maliyet = hisse["adet"] * hisse["alis_fiyati"]
+            deger = hisse["adet"] * guncel
+            kar = deger - maliyet
+            kar_yuzde = (kar / maliyet) * 100 if maliyet > 0 else 0
+            toplam_maliyet += maliyet
+            toplam_deger += deger
+            hisseler.append({
+                "sembol": hisse["sembol"],
+                "adet": hisse["adet"],
+                "alis": f"{hisse['alis_fiyati']:.2f}",
+                "guncel": f"{guncel:.2f}",
+                "kar_yuzde": f"{kar_yuzde:+.2f}",
+                "renk": "positive" if kar >= 0 else "negative",
+            })
+        except Exception:
+            continue
+
+    toplam_kar = toplam_deger - toplam_maliyet
+    return {
+        "tarih": datetime.now().strftime("%d.%m.%Y %H:%M"),
+        "hisseler": hisseler,
+        "toplam_maliyet": f"{toplam_maliyet:,.2f}",
+        "toplam_deger": f"{toplam_deger:,.2f}",
+        "toplam_kar": f"{toplam_kar:+,.2f}",
+        "kar_renk": "positive" if toplam_kar >= 0 else "negative",
+        "hisse_sayisi": len(hisseler),
+    }
 
 # ============================================
 # HTML SABLONLARI
 # ============================================
+HTML_LOGIN = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>BIST AI - Giris</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial; background: #1a1a2e; color: white; margin: 0; padding: 20px; }
+        .container { max-width: 400px; margin: auto; padding-top: 50px; }
+        .logo { text-align: center; margin-bottom: 30px; }
+        .logo h1 { color: #e94560; font-size: 32px; margin: 0; }
+        .logo p { color: #b0bec5; margin-top: 5px; }
+        .form-box { background: #16213e; padding: 30px; border-radius: 10px; }
+        .form-box h2 { margin-top: 0; text-align: center; }
+        input { width: 100%; padding: 12px; margin: 8px 0; border: none; border-radius: 5px; background: #0f3460; color: white; box-sizing: border-box; }
+        .btn { width: 100%; padding: 12px; background: #e94560; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; margin-top: 10px; }
+        .switch { text-align: center; margin-top: 15px; color: #b0bec5; }
+        .switch a { color: #e94560; text-decoration: none; }
+        .hata { background: #f44336; padding: 10px; border-radius: 5px; margin-bottom: 15px; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo"><h1>BIST AI</h1><p>Borsa Yatirim Asistani</p></div>
+        <div class="form-box">
+            <h2>Giris Yap</h2>
+            {% if hata %}<div class="hata">{{ hata }}</div>{% endif %}
+            <form method="POST" action="/giris">
+                <input type="text" name="kullanici_adi" placeholder="Kullanici Adi" required>
+                <input type="password" name="sifre" placeholder="Sifre" required>
+                <button class="btn" type="submit">Giris Yap</button>
+            </form>
+            <div class="switch">Hesabin yok mu? <a href="/kayit">Kayit Ol</a></div>
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+HTML_KAYIT = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>BIST AI - Kayit</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial; background: #1a1a2e; color: white; margin: 0; padding: 20px; }
+        .container { max-width: 400px; margin: auto; padding-top: 50px; }
+        .logo { text-align: center; margin-bottom: 30px; }
+        .logo h1 { color: #e94560; font-size: 32px; margin: 0; }
+        .form-box { background: #16213e; padding: 30px; border-radius: 10px; }
+        .form-box h2 { margin-top: 0; text-align: center; }
+        input { width: 100%; padding: 12px; margin: 8px 0; border: none; border-radius: 5px; background: #0f3460; color: white; box-sizing: border-box; }
+        .btn { width: 100%; padding: 12px; background: #e94560; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; margin-top: 10px; }
+        .switch { text-align: center; margin-top: 15px; color: #b0bec5; }
+        .switch a { color: #e94560; text-decoration: none; }
+        .hata { background: #f44336; padding: 10px; border-radius: 5px; margin-bottom: 15px; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo"><h1>BIST AI</h1><p>Yeni Hesap Olustur</p></div>
+        <div class="form-box">
+            <h2>Kayit Ol</h2>
+            {% if hata %}<div class="hata">{{ hata }}</div>{% endif %}
+            <form method="POST" action="/kayit">
+                <input type="text" name="kullanici_adi" placeholder="Kullanici Adi" required>
+                <input type="email" name="email" placeholder="Email" required>
+                <input type="password" name="sifre" placeholder="Sifre (min 4 karakter)" required>
+                <button class="btn" type="submit">Kayit Ol</button>
+            </form>
+            <div class="switch">Hesabin var mi? <a href="/giris">Giris Yap</a></div>
+        </div>
+    </div>
+</body>
+</html>
+"""
+
 HTML_PORTFOY = """
 <!DOCTYPE html>
 <html>
@@ -444,52 +583,86 @@ HTML_PANEL = """
 """
 
 
+@app.route("/giris", methods=["GET", "POST"])
+def giris():
+    """Giris sayfasi"""
+    if request.method == "POST":
+        basarili, sonuc = kullanici_yoneticisi.giris_yap(
+            request.form.get("kullanici_adi", ""),
+            request.form.get("sifre", ""),
+        )
+        if basarili:
+            response = make_response(redirect(url_for("index")))
+            response.set_cookie("session_token", sonuc, max_age=30 * 24 * 3600, httponly=True)
+            return response
+        return render_template_string(HTML_LOGIN, hata=sonuc)
+    return render_template_string(HTML_LOGIN, hata=None)
+
+
+@app.route("/kayit", methods=["GET", "POST"])
+def kayit():
+    """Kayit sayfasi"""
+    if request.method == "POST":
+        basarili, sonuc = kullanici_yoneticisi.kayit_ol(
+            request.form.get("kullanici_adi", ""),
+            request.form.get("sifre", ""),
+            request.form.get("email", ""),
+        )
+        if basarili:
+            response = make_response(redirect(url_for("index")))
+            response.set_cookie("session_token", sonuc, max_age=30 * 24 * 3600, httponly=True)
+            return response
+        return render_template_string(HTML_KAYIT, hata=sonuc)
+    return render_template_string(HTML_KAYIT, hata=None)
+
+
+@app.route("/cikis")
+def cikis():
+    """Cikis yap"""
+    token = request.cookies.get("session_token")
+    if token:
+        kullanici_yoneticisi.cikis_yap(token)
+    response = make_response(redirect(url_for("giris")))
+    response.delete_cookie("session_token")
+    return response
+
+
 @app.route("/")
 def index():
-    portfoy = Portfoy()
-    hisseler = []
-    toplam_deger = 0
-    toplam_maliyet = 0
+    """Ana sayfa - giris kontrolu ile"""
+    kullanici = aktif_kullanici_al()
+    if not kullanici:
+        return redirect(url_for("giris"))
 
-    for hisse in portfoy.hisseler:
-        adet = hisse["adet"]
-        alis = hisse["alis_fiyati"]
-        guncel = alis
-        deger = adet * guncel
-        hisseler.append({
-            "sembol": hisse["sembol"],
-            "adet": adet,
-            "alis": f"{alis:.2f}",
-            "guncel": f"{guncel:.2f}",
-            "kar_yuzde": "0.00",
-            "renk": "positive",
-        })
-        toplam_deger += deger
-        toplam_maliyet += adet * alis
-
-    toplam_kar = toplam_deger - toplam_maliyet
-    return render_template_string(
-        HTML_PORTFOY,
-        tarih=datetime.now().strftime("%d.%m.%Y %H:%M"),
-        hisseler=hisseler,
-        toplam_deger=f"{toplam_deger:,.2f}",
-        toplam_maliyet=f"{toplam_maliyet:,.2f}",
-        toplam_kar=f"{toplam_kar:,.2f}",
-        kar_renk="positive" if toplam_kar >= 0 else "negative",
-        hisse_sayisi=len(hisseler),
-    )
+    portfoy_hisseler = kullanici_yoneticisi.portfoy_al(kullanici)
+    veri = portfoy_veri_hazirla_icin(portfoy_hisseler)
+    return render_template_string(HTML_PORTFOY, **veri, kullanici=kullanici)
 
 
 @app.route("/ekle", methods=["POST"])
 def hisse_ekle():
     """Yeni hisse ekle"""
     try:
+        kullanici = aktif_kullanici_al()
+        if not kullanici:
+            return redirect(url_for("giris"))
         sembol = request.form["sembol"]
         adet = int(request.form["adet"])
         fiyat = float(request.form["fiyat"])
 
-        portfoy = Portfoy()
-        portfoy.hisse_ekle(sembol, adet, fiyat)
+        portfoy = kullanici_yoneticisi.portfoy_al(kullanici)
+        sembol = sembol.upper().replace(".IS", "")
+        mevcut = next((hisse for hisse in portfoy if hisse["sembol"] == sembol), None)
+        if mevcut:
+            toplam_adet = mevcut["adet"] + adet
+            mevcut["alis_fiyati"] = round(
+                (mevcut["adet"] * mevcut["alis_fiyati"] + adet * fiyat) / toplam_adet,
+                2,
+            )
+            mevcut["adet"] = toplam_adet
+        else:
+            portfoy.append({"sembol": sembol, "adet": adet, "alis_fiyati": fiyat})
+        kullanici_yoneticisi.portfoy_kaydet(kullanici, portfoy)
 
         return redirect(url_for("index"))
     except Exception as e:
@@ -500,9 +673,10 @@ def hisse_ekle():
 def portfoy_temizle():
     """Portfoyu temizler"""
     try:
-        portfoy = Portfoy()
-        portfoy.hisseler = []
-        portfoy.kaydet()
+        kullanici = aktif_kullanici_al()
+        if not kullanici:
+            return redirect(url_for("giris"))
+        kullanici_yoneticisi.portfoy_kaydet(kullanici, [])
         return redirect(url_for("index"))
     except Exception as e:
         return f"Hata: {e}"
