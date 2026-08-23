@@ -6,3 +6,4 @@ requests
 matplotlib
 python-telegram-bot
 openpyxl
+scikit-learn
