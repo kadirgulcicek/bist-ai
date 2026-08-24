@@ -321,7 +321,7 @@ HTML_RISK = """
 <!DOCTYPE html>
 <html>
 <head>
-    <title>BIST AI - Risk</title>
+    <title>BIST AI - Risk Analizi</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#e94560">
@@ -334,6 +334,8 @@ HTML_RISK = """
         .menu { display: flex; gap: 8px; margin: 15px 0; flex-wrap: wrap; }
         .menu a { flex: 1; min-width: 80px; padding: 8px; background: #0f3460; color: white; text-decoration: none; border-radius: 5px; text-align: center; font-size: 13px; }
         .menu a.active { background: #e94560; }
+        .metrik-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        .metrik-grid .section { margin-bottom: 0; text-align: center; }
         .puan-kutu { background: #16213e; padding: 30px; border-radius: 10px; text-align: center; margin-bottom: 20px; }
         .puan-sayi { font-size: 60px; font-weight: bold; }
         .puan-yorum { font-size: 16px; margin-top: 10px; }
@@ -353,24 +355,26 @@ HTML_RISK = """
     <div class="container">
         <div class="header"><h1>Risk Analizi</h1><p>{{ tarih }}</p></div>
         <div class="menu">
-            <a href="/">Portfoy</a>
-            <a href="/panel">Panel</a>
-            <a href="/sektor">Sektor</a>
-            <a href="/risk" class="active">Risk</a>
-            <a href="/ai">AI</a>
-            <a href="/sinyal">Sinyal</a>
-            <a href="/canli">Canli</a>
-            <a href="/hedef">Hedef</a>
-            <a href="/bildirim">Bildirim</a>
+            <a href="/">Portfoy</a><a href="/panel">Panel</a><a href="/sektor">Sektor</a>
+            <a href="/risk" class="active">Risk</a><a href="/ai">AI</a><a href="/sinyal">Sinyal</a>
+            <a href="/canli">Canli</a><a href="/hedef">Hedef</a><a href="/bildirim">Bildirim</a><a href="/cikis" class="cikis">Cikis</a>
         </div>
-        <div class="section">
-            <h3>Risk Ozeti</h3>
-            <p>Toplam Portfoy: {{ toplam_deger }} TL</p>
-            <p>Cesitlendirme Puani: {{ puan }}/100</p>
+        <div class="puan-kutu"><div class="puan-sayi" style="color: {{ risk_renk }};">{{ genel_risk }}/100</div><div class="puan-yorum">{{ risk_seviye }} RISK</div></div>
+        <h2>Portfoy Metrikleri</h2>
+        <div class="metrik-grid">
+            <div class="section"><b>Toplam Deger</b><h2>{{ toplam_deger }} TL</h2><small> Maliyet: {{ toplam_maliyet }} TL</small></div>
+            <div class="section"><b>Kar/Zarar</b><h2>{{ toplam_kar_yuzde }}%</h2><small>{{ toplam_kar }} TL</small></div>
+            <div class="section"><b>Sharpe Ratio</b><h2>{{ portfoy_sharpe }}</h2><small>Risk/Odul</small></div>
+            <div class="section"><b>Volatilite</b><h2>%{{ portfoy_volatilite }}</h2><small>Yillik</small></div>
+            <div class="section"><b>VaR (95%)</b><h2>%{{ portfoy_var }}</h2><small>Gunluk max kayip</small></div>
+            <div class="section"><b>Beta</b><h2>{{ portfoy_beta }}</h2><small>Piyasa ile iliski</small></div>
         </div>
-        {% for uyari in uyarilar %}
-        <div class="uyari">{{ uyari }}</div>
-        {% endfor %}
+        <div class="section"><h3>Cesitlendirme Puani: {{ cesitlendirme }}/100</h3><p>{{ puan_yorum }}</p></div>
+        {% if hisse_verileri %}<div class="section"><h3>Hisse Bazli Risk Detayi</h3>
+            {% for h in hisse_verileri %}<div class="item"><b>{{ h.sembol }} ({{ h.agirlik }}%)</b><span>Risk: {{ h.risk_skor }}/10</span><br><small>Sharpe: {{ h.sharpe }} | Max DD: %{{ h.max_drawdown }} | Volatilite: %{{ h.volatilite }} | Beta: {{ h.beta }}<br>Kar/Zarar: {{ h.kar_yuzde }}% ({{ h.kar }} TL)</small></div>{% endfor %}
+        </div>{% endif %}
+        {% if korelasyonlar %}<div class="section"><h3>Yuksek Korelasyonlu Hisseler</h3>{% for k in korelasyonlar %}<div class="item">{{ k.hisse1 }} - {{ k.hisse2 }}: {{ k.korelasyon }} ({{ k.tip }})</div>{% endfor %}</div>{% endif %}
+        <div class="section"><h3>Oneriler</h3>{% for o in oneriler %}<div class="uyari">{{ o }}</div>{% endfor %}</div>
     </div>
 </body>
 </html>
@@ -612,7 +616,7 @@ HTML_PANEL = """
     <div class="container">
         <div class="header">
             <h1>BIST AI - Mega Panel</h1>
-            <p>{{ tarih }}</p>
+                <title>BIST AI - Risk Analizi</title>
         </div>
         <div class="menu">
             <a href="/">Portfoy</a>
@@ -623,7 +627,7 @@ HTML_PANEL = """
             <a href="/sinyal">Sinyal</a>
             <a href="/canli">Canli</a>
             <a href="/hedef">Hedef</a>
-            <a href="/bildirim">Bildirim</a>
+                    .menu a { flex: 1; min-width: 70px; padding: 8px; background: #0f3460; color: white; text-decoration: none; border-radius: 5px; text-align: center; font-size: 13px; }
         </div>
         <a href="/panel" class="yenile-btn">Yenile</a>
         <div class="dashboard">
@@ -971,24 +975,51 @@ def sektor():
 
 @app.route("/risk")
 def risk():
-    veri = portfoy_verilerini_al()
-    if not veri or not veri["hisseler"]:
-        return "Portfoy bos veya veri alinamadi."
-    hisseler = veri["hisseler"]
-    uyarilar = []
-    uyarilar.extend(konsantrasyon_riski(hisseler, veri["toplam_deger"]))
-    uyarilar.extend(volatilite_riski(hisseler))
-    uyarilar.extend(drawdown_riski(hisseler))
-    if len(hisseler) >= 2:
-        uyarilar.extend(korelasyon_analizi(hisseler))
-    puan = cesitlendirme_puani(hisseler, veri["toplam_deger"])
-    return render_template_string(
-        HTML_RISK,
-        tarih=datetime.now().strftime("%d.%m.%Y %H:%M"),
-        toplam_deger=f"{veri['toplam_deger']:,.2f}",
-        puan=puan,
-        uyarilar=uyarilar,
-    )
+    kullanici = aktif_kullanici_al()
+    if not kullanici:
+        return redirect(url_for("giris"))
+
+    try:
+        portfoy_hisseler = kullanici_yoneticisi.portfoy_al(kullanici)
+        if not portfoy_hisseler:
+            return render_template_string(
+                HTML_RISK,
+                tarih=datetime.now().strftime("%d.%m.%Y %H:%M"),
+                hisse_verileri=[], korelasyonlar=[], toplam_deger=0,
+                toplam_maliyet=0, toplam_kar=0, toplam_kar_yuzde=0,
+                portfoy_sharpe=0, portfoy_volatilite=0, portfoy_var=0,
+                portfoy_beta=0, cesitlendirme=0, genel_risk=0,
+                risk_seviye="VERI YOK", risk_renk="#607d8b",
+                oneriler=["Portfoye hisse ekleyin."], puan=0,
+                puan_yorum="Portfoy bos",
+            )
+
+        from risk_gelismis import portfoy_risk_analiz
+
+        sonuc = portfoy_risk_analiz(portfoy_hisseler)
+        if not sonuc:
+            return "Risk analizi yapilamadi."
+
+        puan = sonuc["cesitlendirme"]
+        if puan >= 80:
+            puan_yorum = "Mukemmel! Portfoy cok iyi cesitlendirilmis."
+        elif puan >= 60:
+            puan_yorum = "Iyi. Cesitlendirme yeterli."
+        elif puan >= 40:
+            puan_yorum = "Orta. Cesitlendirme artirilabilir."
+        elif puan >= 20:
+            puan_yorum = "Zayif. Risk var!"
+        else:
+            puan_yorum = "Cok tehlikeli!"
+
+        return render_template_string(
+            HTML_RISK,
+            **sonuc,
+            puan=puan,
+            puan_yorum=puan_yorum,
+        )
+    except Exception as e:
+        return f"Hata: {e}"
 
 
 @app.route("/ai")
