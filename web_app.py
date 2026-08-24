@@ -207,6 +207,7 @@ HTML_PORTFOY = """
             <a href="/sinyal">Sinyal</a>
             <a href="/canli">Canli</a>
             <a href="/hedef">Hedef</a>
+            <a href="/bildirim">Bildirim</a>
         </div>
         <div class="stats">
             <div class="stat-card"><div>Deger</div><div class="stat-value">{{ toplam_deger }} TL</div></div>
@@ -297,6 +298,7 @@ HTML_SEKTOR = """
             <a href="/sinyal">Sinyal</a>
             <a href="/canli">Canli</a>
             <a href="/hedef">Hedef</a>
+            <a href="/bildirim">Bildirim</a>
         </div>
         <h2>Sektor Performansi</h2>
         {% for s in sektorler %}
@@ -359,6 +361,7 @@ HTML_RISK = """
             <a href="/sinyal">Sinyal</a>
             <a href="/canli">Canli</a>
             <a href="/hedef">Hedef</a>
+            <a href="/bildirim">Bildirim</a>
         </div>
         <div class="section">
             <h3>Risk Ozeti</h3>
@@ -418,6 +421,7 @@ HTML_AI = """
             <a href="/sinyal">Sinyal</a>
             <a href="/canli">Canli</a>
             <a href="/hedef">Hedef</a>
+            <a href="/bildirim">Bildirim</a>
         </div>
         <div class="info-box">
             <h3>Ensemble AI Model</h3>
@@ -516,6 +520,7 @@ HTML_SINYAL = """
             <a href="/sinyal" class="active">Sinyal</a>
             <a href="/canli">Canli</a>
             <a href="/hedef">Hedef</a>
+            <a href="/bildirim">Bildirim</a>
         </div>
         <a href="/sinyal" class="yenile-btn">Yenile</a>
         <div class="filtre">
@@ -618,6 +623,7 @@ HTML_PANEL = """
             <a href="/sinyal">Sinyal</a>
             <a href="/canli">Canli</a>
             <a href="/hedef">Hedef</a>
+            <a href="/bildirim">Bildirim</a>
         </div>
         <a href="/panel" class="yenile-btn">Yenile</a>
         <div class="dashboard">
@@ -694,6 +700,7 @@ HTML_CANLI = """
             <a href="/risk">Risk</a><a href="/ai">AI</a><a href="/sinyal">Sinyal</a>
             <a href="/canli" class="active">Canli</a><a href="/cikis" class="cikis">Cikis</a>
             <a href="/hedef">Hedef</a>
+            <a href="/bildirim">Bildirim</a>
         </div>
         {% for alarm in alarmlar %}
         <div class="alarm"><b>ALARM!</b> {{ alarm.sembol }} - {{ alarm.fiyat }} TL - {{ alarm.aciklama }}</div>
@@ -753,7 +760,7 @@ HTML_HEDEF = """
     <div class="header"><h1>Hedef Fiyat Tahmini</h1><p>{{ tarih }}</p></div>
     <div class="menu">
         <a href="/">Portfoy</a><a href="/panel">Panel</a><a href="/sektor">Sektor</a><a href="/risk">Risk</a>
-        <a href="/ai">AI</a><a href="/sinyal">Sinyal</a><a href="/canli">Canli</a><a href="/hedef" class="active">Hedef</a><a href="/cikis" class="cikis">Cikis</a>
+        <a href="/ai">AI</a><a href="/sinyal">Sinyal</a><a href="/canli">Canli</a><a href="/hedef" class="active">Hedef</a><a href="/bildirim">Bildirim</a><a href="/cikis" class="cikis">Cikis</a>
     </div>
     {% if hedefler %}{% for h in hedefler %}
     <div class="hedef-card {{ h.risk|lower }}">
@@ -765,6 +772,60 @@ HTML_HEDEF = """
     </div>
     {% endfor %}{% else %}<div class="info-box"><p>Tahminler yuklenemedi.</p></div>{% endif %}
     <div class="info-box" style="margin-top: 20px; font-size: 12px;"><b>NOT:</b> Tahminler gecmis verilere dayanir, garanti vermez. Yatirim tavsiyesi degildir.</div>
+</div></body>
+</html>
+"""
+
+
+HTML_BILDIRIM = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>BIST AI - Bildirimler</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial; background: #1a1a2e; color: white; margin: 0; padding: 15px; }
+        .container { max-width: 800px; margin: auto; }
+        .header { text-align: center; padding: 20px; background: linear-gradient(135deg, #16213e, #0f3460); border-radius: 10px; margin-bottom: 15px; }
+        .header h1 { margin: 0; color: #e94560; font-size: 22px; }
+        .menu { display: flex; gap: 8px; margin: 15px 0; flex-wrap: wrap; }
+        .menu a { flex: 1; min-width: 70px; padding: 8px; background: #0f3460; color: white; text-decoration: none; border-radius: 5px; text-align: center; font-size: 13px; }
+        .menu a.active { background: #e94560; } .menu a.cikis { background: #f44336; }
+        .ayar-kutu { background: #16213e; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .ayar-kutu h3 { margin-top: 0; color: #4caf50; }
+        .ayar-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #0f3460; }
+        .ayar-row:last-child { border-bottom: none; }
+        .switch { position: relative; display: inline-block; width: 50px; height: 24px; }
+        .switch input { display: none; } .slider { position: absolute; cursor: pointer; inset: 0; background: #607d8b; border-radius: 24px; transition: .3s; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: .3s; }
+        input:checked + .slider { background: #4caf50; } input:checked + .slider:before { transform: translateX(26px); }
+        select { background: #0f3460; color: white; border: none; padding: 8px 12px; border-radius: 5px; font-size: 14px; }
+        .btn { padding: 10px 20px; background: #e94560; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; }
+        .bildirim { background: #16213e; padding: 12px; margin: 8px 0; border-radius: 8px; border-left: 4px solid #e94560; }
+        .bildirim-zaman { font-size: 11px; color: #b0bec5; margin-bottom: 5px; }
+        .info-box { background: #16213e; padding: 15px; border-radius: 8px; margin: 15px 0; text-align: center; }
+        .basarili { background: #4caf50; padding: 10px; border-radius: 5px; margin-bottom: 15px; text-align: center; }
+    </style>
+</head>
+<body><div class="container">
+    <div class="header"><h1>Bildirim Ayarlari</h1><p>{{ tarih }}</p></div>
+    <div class="menu">
+        <a href="/">Portfoy</a><a href="/panel">Panel</a><a href="/sektor">Sektor</a><a href="/risk">Risk</a>
+        <a href="/ai">AI</a><a href="/sinyal">Sinyal</a><a href="/canli">Canli</a><a href="/hedef">Hedef</a>
+        <a href="/bildirim" class="active">Bildirim</a><a href="/cikis" class="cikis">Cikis</a>
+    </div>
+    {% if mesaj %}<div class="{{ sinif }}">{{ mesaj }}</div>{% endif %}
+    <div class="ayar-kutu"><h3>Bildirim Tercihleri</h3><form method="POST">
+        <div class="ayar-row"><span><b>Bildirim Aktif:</b></span><label class="switch"><input type="checkbox" name="aktif" {% if ayarlar.aktif %}checked{% endif %}><span class="slider"></span></label></div>
+        <div class="ayar-row"><span><b>Zaman:</b></span><select name="zaman">
+            <option value="sabah" {% if ayarlar.zaman == 'sabah' %}selected{% endif %}>Sabah (09:00)</option><option value="ogle" {% if ayarlar.zaman == 'ogle' %}selected{% endif %}>Ogle (13:00)</option><option value="aksam" {% if ayarlar.zaman == 'aksam' %}selected{% endif %}>Aksam (18:00)</option><option value="hepsi" {% if ayarlar.zaman == 'hepsi' %}selected{% endif %}>Hepsi</option>
+        </select></div>
+        <div class="ayar-row"><span><b>Tur:</b></span><select name="tur"><option value="hepsi" {% if ayarlar.tur == 'hepsi' %}selected{% endif %}>Hepsi (AL + SAT)</option><option value="AL" {% if ayarlar.tur == 'AL' %}selected{% endif %}>Sadece AL</option><option value="SAT" {% if ayarlar.tur == 'SAT' %}selected{% endif %}>Sadece SAT</option></select></div>
+        <div class="ayar-row"><span><b>Siklik:</b></span><select name="siklik"><option value="saatlik" {% if ayarlar.siklik == 'saatlik' %}selected{% endif %}>Her saat</option><option value="gunluk" {% if ayarlar.siklik == 'gunluk' %}selected{% endif %}>Gunde 1</option><option value="haftalik" {% if ayarlar.siklik == 'haftalik' %}selected{% endif %}>Haftada 1</option></select></div>
+        <div style="text-align: center; margin-top: 20px;"><button class="btn" type="submit">Ayarlari Kaydet</button></div>
+    </form></div>
+    <div class="ayar-kutu"><h3>Son Bildirimler</h3>{% if bildirimler %}{% for b in bildirimler %}<div class="bildirim"><div class="bildirim-zaman">{{ b.tarih }}</div><div>{{ b.mesaj }}</div></div>{% endfor %}{% else %}<p style="color: #b0bec5;">Henuz bildirim yok.</p>{% endif %}</div>
+    <div class="info-box"><p style="font-size: 12px;">Bu sayfayi ziyaret ederek bildirim ayarlarinizi yonetin.</p><p style="font-size: 12px; color: #b0bec5;">Son bildirim: {{ ayarlar.son_bildirim|default('Henuz yok') }}</p></div>
 </div></body>
 </html>
 """
@@ -1175,6 +1236,44 @@ def hedef_sayfasi():
             hedefler=[],
             tarih=datetime.now().strftime("%d.%m.%Y %H:%M"),
         )
+
+
+@app.route("/bildirim", methods=["GET", "POST"])
+def bildirim_sayfasi():
+    """Kisisel bildirim ayarlari"""
+    kullanici = aktif_kullanici_al()
+    if not kullanici:
+        return redirect(url_for("giris"))
+
+    from bildirim_sistemi import kullanici_ayarlari_al, kullanici_ayarlari_guncelle
+
+    mesaj = None
+    sinif = "basarili"
+    if request.method == "POST":
+        mevcut_ayarlar = kullanici_ayarlari_al(kullanici)
+        yeni_ayarlar = {
+            "aktif": request.form.get("aktif") == "on",
+            "zaman": request.form.get("zaman", "sabah"),
+            "tur": request.form.get("tur", "hepsi"),
+            "hisseler": mevcut_ayarlar.get("hisseler", []),
+            "siklik": request.form.get("siklik", "saatlik"),
+            "son_bildirim": mevcut_ayarlar.get("son_bildirim"),
+            "gecmis": mevcut_ayarlar.get("gecmis", []),
+        }
+        kullanici_ayarlari_guncelle(kullanici, yeni_ayarlar)
+        mesaj = "Ayarlar kaydedildi!"
+
+    ayarlar = kullanici_ayarlari_al(kullanici)
+    bildirimler = ayarlar.get("gecmis", [])[-10:]
+    bildirimler.reverse()
+    return render_template_string(
+        HTML_BILDIRIM,
+        tarih=datetime.now().strftime("%d.%m.%Y %H:%M"),
+        ayarlar=ayarlar,
+        bildirimler=bildirimler,
+        mesaj=mesaj,
+        sinif=sinif,
+    )
 
 
 @app.route("/panel")
