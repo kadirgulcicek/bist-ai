@@ -1037,7 +1037,7 @@ def sinyal_sayfasi():
         return redirect(url_for("giris"))
 
     try:
-        from sinyal_gelismis import portfoy_sinyalleri_al
+        from sinyal_pro import portfoy_sinyalleri_al
 
         sinyaller_raw = portfoy_sinyalleri_al(kullanici)
         filtre = request.args.get("tip", "HEPSI").upper()
