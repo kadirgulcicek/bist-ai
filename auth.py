@@ -4,8 +4,18 @@ Kayit, giris, sifre yonetimi
 Guvenli sifre hashleme
 """
 
-import json
 import os
+
+# Eski verileri temizle (her deploy'da)
+for dosya in ["users_db.json", "portfoy.json"]:
+    if os.path.exists(dosya):
+        try:
+            os.remove(dosya)
+            print(f"Temizlendi: {dosya}")
+        except:
+            pass
+
+import json
 import hashlib
 import secrets
 from datetime import datetime

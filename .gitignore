@@ -1,0 +1,6 @@
+users_db.json
+portfoy.json
+islemler.json
+stop_loss.json
+*.json
+.env
