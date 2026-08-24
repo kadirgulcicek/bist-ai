@@ -1032,76 +1032,92 @@ def ai_tahmin_sayfasi():
 
 @app.route("/sinyal")
 def sinyal_sayfasi():
+    kullanici = aktif_kullanici_al()
+    if not kullanici:
+        return redirect(url_for("giris"))
+
     try:
-        from otomatik_sistem import OtomatikSistem
+        from sinyal_basit import portfoy_sinyalleri_al
 
+        sinyaller_raw = portfoy_sinyalleri_al(kullanici)
         filtre = request.args.get("tip", "HEPSI").upper()
-        sistem = OtomatikSistem()
-        sinyaller_raw = sistem.portfoy_analiz(None)
-
         if filtre == "AL":
             sinyaller_raw = [s for s in sinyaller_raw if s["karar"] == "AL"]
         elif filtre == "SAT":
             sinyaller_raw = [s for s in sinyaller_raw if s["karar"] == "SAT"]
         elif filtre == "PORTFOY":
-            kullanici = aktif_kullanici_al()
-            portfoy_semboller = []
-            if kullanici:
-                portfoy_semboller = [
-                    h["sembol"] for h in kullanici_yoneticisi.portfoy_al(kullanici)
-                ]
-            sinyaller_raw = [
-                s for s in sinyaller_raw if s["sembol"] in portfoy_semboller
-            ]
+            try:
+                portfoy_hisseler = kullanici_yoneticisi.portfoy_al(kullanici)
+                portfoy_semboller = [h["sembol"] for h in portfoy_hisseler]
+                sinyaller_raw = [s for s in sinyaller_raw if s["sembol"] in portfoy_semboller]
+            except Exception:
+                pass
 
         sinyaller = []
-        for kaynak in sinyaller_raw:
-            rsi = kaynak.get("rsi", "-")
-            macd = kaynak.get("macd", "-")
+        for s in sinyaller_raw:
+            rsi = s.get("rsi", "-")
+            macd = s.get("macd", "-")
             sinyal = {
-                "sembol": kaynak["sembol"],
-                "fiyat": kaynak["fiyat"],
-                "karar": kaynak["karar"],
-                "oncelik": kaynak.get("oncelik", "DUSUK"),
-                "sebepler": kaynak.get("sebepler", []),
+                "sembol": s.get("sembol", ""),
+                "fiyat": s.get("fiyat", 0),
+                "karar": s.get("karar", "BEKLE"),
+                "oncelik": s.get("oncelik", "DUSUK"),
+                "sebepler": s.get("sebepler", []),
                 "rsi": rsi,
                 "macd": macd,
                 "trend": "-",
                 "rsi_renk": "",
                 "macd_renk": "",
                 "trend_renk": "",
-                "guven": 85 if kaynak.get("oncelik") == "YUKSEK" else 65 if kaynak.get("oncelik") == "ORTA" else 40,
+                "guven": 50,
                 "hedef": None,
                 "hedef_renk": "",
                 "hedef_degisim": "",
             }
 
-            if isinstance(rsi, (int, float)):
-                if rsi < 35:
+            try:
+                rsi_val = float(rsi)
+                if rsi_val < 35:
                     sinyal["rsi_renk"] = "hedef-yukari"
-                elif rsi > 70:
+                elif rsi_val > 70:
                     sinyal["rsi_renk"] = "hedef-asagi"
-            if isinstance(macd, (int, float)):
-                sinyal["macd_renk"] = "hedef-yukari" if macd > 0 else "hedef-asagi"
+            except (TypeError, ValueError):
+                pass
 
-            sebepler = kaynak.get("sebepler", [])
-            if "Trend" in str(sebepler):
+            try:
+                macd_val = float(macd)
+                sinyal["macd_renk"] = "hedef-yukari" if macd_val > 0 else "hedef-asagi"
+            except (TypeError, ValueError):
+                pass
+
+            sebepler = s.get("sebepler", [])
+            if any("Trend" in str(sep) for sep in sebepler):
                 sinyal["trend"] = "YUKARI"
-                sinyal["trend_renk"] = "hedef-yukari"
-            elif any("Hacim" in str(sebep) for sebep in sebepler):
-                sinyal["trend"] = "HACIM"
                 sinyal["trend_renk"] = "hedef-yukari"
 
             try:
-                if kaynak["karar"] == "AL":
-                    sinyal["hedef"] = round(kaynak["fiyat"] * 1.10, 2)
+                if s.get("karar") == "AL":
+                    sinyal["hedef"] = round(s["fiyat"] * 1.10, 2)
                     sinyal["hedef_renk"] = "hedef-yukari"
                     sinyal["hedef_degisim"] = "+10%"
-                elif kaynak["karar"] == "SAT":
-                    sinyal["hedef"] = round(kaynak["fiyat"] * 0.95, 2)
-                    sinyal["hedef_renk"] = "hedef-asagi"
-                    sinyal["hedef_degisim"] = "-5%"
-            except (TypeError, ValueError):
+                elif s.get("karar") == "SAT":
+                    alis = None
+                    try:
+                        for h in kullanici_yoneticisi.portfoy_al(kullanici):
+                            if h["sembol"] == s.get("sembol"):
+                                alis = h["alis_fiyati"]
+                                break
+                    except Exception:
+                        pass
+                    if alis:
+                        sinyal["hedef"] = round(alis * 1.15, 2)
+                        sinyal["hedef_renk"] = "hedef-yukari"
+                        sinyal["hedef_degisim"] = "+15%"
+                    else:
+                        sinyal["hedef"] = round(s.get("fiyat", 0) * 0.95, 2)
+                        sinyal["hedef_renk"] = "hedef-asagi"
+                        sinyal["hedef_degisim"] = "-5%"
+            except Exception:
                 pass
             sinyaller.append(sinyal)
 
