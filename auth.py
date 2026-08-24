@@ -5,17 +5,18 @@ Guvenli sifre hashleme
 """
 
 import os
+import json
 
-# Eski verileri temizle (her deploy'da)
-for dosya in ["users_db.json", "portfoy.json"]:
+# Eski verileri sil - her deploy'da temiz baslar
+SILINECEKLER = ["users_db.json"]
+for dosya in SILINECEKLER:
     if os.path.exists(dosya):
         try:
             os.remove(dosya)
-            print(f"Temizlendi: {dosya}")
+            print(f"[TEMIZLENDI] {dosya}")
         except:
             pass
 
-import json
 import hashlib
 import secrets
 from datetime import datetime
