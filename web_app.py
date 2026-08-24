@@ -205,6 +205,7 @@ HTML_PORTFOY = """
             <a href="/risk">Risk</a>
             <a href="/ai">AI</a>
             <a href="/sinyal">Sinyal</a>
+            <a href="/canli">Canli</a>
         </div>
         <div class="stats">
             <div class="stat-card"><div>Deger</div><div class="stat-value">{{ toplam_deger }} TL</div></div>
@@ -293,6 +294,7 @@ HTML_SEKTOR = """
             <a href="/risk">Risk</a>
             <a href="/ai">AI</a>
             <a href="/sinyal">Sinyal</a>
+            <a href="/canli">Canli</a>
         </div>
         <h2>Sektor Performansi</h2>
         {% for s in sektorler %}
@@ -353,6 +355,7 @@ HTML_RISK = """
             <a href="/risk" class="active">Risk</a>
             <a href="/ai">AI</a>
             <a href="/sinyal">Sinyal</a>
+            <a href="/canli">Canli</a>
         </div>
         <div class="section">
             <h3>Risk Ozeti</h3>
@@ -410,6 +413,7 @@ HTML_AI = """
             <a href="/risk">Risk</a>
             <a href="/ai" class="active">AI</a>
             <a href="/sinyal">Sinyal</a>
+            <a href="/canli">Canli</a>
         </div>
         <div class="info-box">
             <h3>Ensemble AI Model</h3>
@@ -506,6 +510,7 @@ HTML_SINYAL = """
             <a href="/risk">Risk</a>
             <a href="/ai">AI</a>
             <a href="/sinyal" class="active">Sinyal</a>
+            <a href="/canli">Canli</a>
         </div>
         <a href="/sinyal" class="yenile-btn">Yenile</a>
         <div class="filtre">
@@ -606,6 +611,7 @@ HTML_PANEL = """
             <a href="/risk">Risk</a>
             <a href="/ai">AI</a>
             <a href="/sinyal">Sinyal</a>
+            <a href="/canli">Canli</a>
         </div>
         <a href="/panel" class="yenile-btn">Yenile</a>
         <div class="dashboard">
@@ -637,6 +643,66 @@ HTML_PANEL = """
             </div>
         </div>
     </div>
+</body>
+</html>
+"""
+
+
+HTML_CANLI = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>BIST AI - Canli Takip</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <style>
+        body { font-family: Arial; background: #1a1a2e; color: white; margin: 0; padding: 15px; }
+        .container { max-width: 800px; margin: auto; }
+        .header { text-align: center; padding: 20px; background: linear-gradient(135deg, #16213e, #0f3460); border-radius: 10px; margin-bottom: 15px; }
+        .header h1 { margin: 0; color: #e94560; font-size: 22px; }
+        .menu { display: flex; gap: 8px; margin: 15px 0; flex-wrap: wrap; }
+        .menu a { flex: 1; min-width: 70px; padding: 8px; background: #0f3460; color: white; text-decoration: none; border-radius: 5px; text-align: center; font-size: 13px; }
+        .menu a.active { background: #e94560; }
+        .menu a.cikis { background: #f44336; }
+        .canli-card { background: #16213e; padding: 15px; margin: 10px 0; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border-left: 4px solid #4caf50; }
+        .canli-card.negatif { border-left-color: #f44336; }
+        .canli-card.beklemede { border-left-color: #607d8b; opacity: 0.7; }
+        .sembol { font-weight: bold; font-size: 18px; }
+        .fiyat { font-size: 20px; font-weight: bold; margin-top: 5px; }
+        .degisim { font-size: 14px; margin-top: 3px; }
+        .pozitif { color: #4caf50; } .negatif { color: #f44336; }
+        .zaman { font-size: 12px; color: #b0bec5; }
+        .alarm { background: #5c1f1f; padding: 12px; border-radius: 8px; margin: 10px 0; border-left: 4px solid #f44336; animation: blink 2s infinite; }
+        @keyframes blink { 50% { opacity: 0.7; } }
+        .info-box { background: #16213e; padding: 15px; border-radius: 8px; margin: 15px 0; text-align: center; }
+        .otomatik-bilgi { font-size: 12px; color: #b0bec5; margin-top: 15px; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header"><h1>Canli Takip</h1><p>{{ tarih }}</p></div>
+        <div class="menu">
+            <a href="/">Portfoy</a><a href="/panel">Panel</a><a href="/sektor">Sektor</a>
+            <a href="/risk">Risk</a><a href="/ai">AI</a><a href="/sinyal">Sinyal</a>
+            <a href="/canli" class="active">Canli</a><a href="/cikis" class="cikis">Cikis</a>
+        </div>
+        {% for alarm in alarmlar %}
+        <div class="alarm"><b>ALARM!</b> {{ alarm.sembol }} - {{ alarm.fiyat }} TL - {{ alarm.aciklama }}</div>
+        {% endfor %}
+        <h2>Anlik Fiyatlar</h2>
+        {% for h in fiyatlar %}
+        <div class="canli-card {{ h.durum }}">
+            <div><div class="sembol">{{ h.sembol }}</div><div class="zaman">{{ h.zaman }}</div></div>
+            <div style="text-align: right;"><div class="fiyat">{{ h.fiyat }} TL</div><div class="degisim {{ h.renk }}">{{ h.yon }} {{ h.degisim }}%</div></div>
+        </div>
+        {% endfor %}
+        {% if not fiyatlar %}<div class="info-box"><p>Veriler yukleniyor...</p><p style="font-size: 12px;">Sayfa her 30 saniyede otomatik guncellenir.</p></div>{% endif %}
+        <div class="info-box" style="margin-top: 20px;"><b>Canli Takip Ozellikleri</b><br>- Her 30 saniyede otomatik fiyat guncelleme<br>- Buyuk hareketlerde otomatik alarm<br>- Piyasa kapaliysa son kapanis fiyati gosterilir</div>
+        <div class="otomatik-bilgi">Bu sayfa her 30 saniyede otomatik guncellenir.</div>
+    </div>
+    <script>setTimeout(function() { location.reload(); }, 30000);</script>
 </body>
 </html>
 """
@@ -936,6 +1002,75 @@ def sinyal_sayfasi():
             filtre_al="",
             filtre_sat="",
             filtre_portfoy="",
+        )
+
+
+@app.route("/canli")
+def canli_sayfasi():
+    """Canli fiyat takibi"""
+    kullanici = aktif_kullanici_al()
+    if not kullanici:
+        return redirect(url_for("giris"))
+
+    try:
+        from canli_takip import CanliTakip
+
+        takip = CanliTakip()
+        portfoy_hisseler = kullanici_yoneticisi.portfoy_al(kullanici)
+        takip_semboller = [h["sembol"] for h in portfoy_hisseler]
+        populer = ["THYAO", "GARAN", "ASELS", "TUPRS", "EREGL"]
+        if not takip_semboller:
+            takip_semboller = populer
+        else:
+            for sembol in populer:
+                if sembol not in takip_semboller:
+                    takip_semboller.append(sembol)
+                if len(takip_semboller) >= 10:
+                    break
+
+        fiyatlar = []
+        alarmlar = []
+        for sembol in takip_semboller[:10]:
+            veri = takip.anlik_fiyat_al(sembol)
+            if not veri:
+                continue
+
+            degisim = veri["degisim"]
+            if degisim > 0.5:
+                renk, yon, durum = "pozitif", "YUKARI", ""
+            elif degisim < -0.5:
+                renk, yon, durum = "negatif", "ASAGI", "negatif"
+            else:
+                renk, yon, durum = "", "SIFIR", "beklemede"
+
+            fiyatlar.append({
+                "sembol": sembol,
+                "fiyat": veri["fiyat"],
+                "degisim": veri["degisim"],
+                "yon": yon,
+                "renk": renk,
+                "durum": durum,
+                "zaman": veri["zaman"],
+            })
+            if abs(degisim) >= 3.0:
+                alarmlar.append({
+                    "sembol": sembol,
+                    "fiyat": veri["fiyat"],
+                    "aciklama": f"%{degisim:+.2f} hareket!",
+                })
+
+        return render_template_string(
+            HTML_CANLI,
+            fiyatlar=fiyatlar,
+            alarmlar=alarmlar,
+            tarih=datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
+        )
+    except Exception:
+        return render_template_string(
+            HTML_CANLI,
+            fiyatlar=[],
+            alarmlar=[],
+            tarih=datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
         )
 
 
