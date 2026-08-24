@@ -206,6 +206,7 @@ HTML_PORTFOY = """
             <a href="/ai">AI</a>
             <a href="/sinyal">Sinyal</a>
             <a href="/canli">Canli</a>
+            <a href="/hedef">Hedef</a>
         </div>
         <div class="stats">
             <div class="stat-card"><div>Deger</div><div class="stat-value">{{ toplam_deger }} TL</div></div>
@@ -295,6 +296,7 @@ HTML_SEKTOR = """
             <a href="/ai">AI</a>
             <a href="/sinyal">Sinyal</a>
             <a href="/canli">Canli</a>
+            <a href="/hedef">Hedef</a>
         </div>
         <h2>Sektor Performansi</h2>
         {% for s in sektorler %}
@@ -356,6 +358,7 @@ HTML_RISK = """
             <a href="/ai">AI</a>
             <a href="/sinyal">Sinyal</a>
             <a href="/canli">Canli</a>
+            <a href="/hedef">Hedef</a>
         </div>
         <div class="section">
             <h3>Risk Ozeti</h3>
@@ -414,6 +417,7 @@ HTML_AI = """
             <a href="/ai" class="active">AI</a>
             <a href="/sinyal">Sinyal</a>
             <a href="/canli">Canli</a>
+            <a href="/hedef">Hedef</a>
         </div>
         <div class="info-box">
             <h3>Ensemble AI Model</h3>
@@ -511,6 +515,7 @@ HTML_SINYAL = """
             <a href="/ai">AI</a>
             <a href="/sinyal" class="active">Sinyal</a>
             <a href="/canli">Canli</a>
+            <a href="/hedef">Hedef</a>
         </div>
         <a href="/sinyal" class="yenile-btn">Yenile</a>
         <div class="filtre">
@@ -612,6 +617,7 @@ HTML_PANEL = """
             <a href="/ai">AI</a>
             <a href="/sinyal">Sinyal</a>
             <a href="/canli">Canli</a>
+            <a href="/hedef">Hedef</a>
         </div>
         <a href="/panel" class="yenile-btn">Yenile</a>
         <div class="dashboard">
@@ -687,6 +693,7 @@ HTML_CANLI = """
             <a href="/">Portfoy</a><a href="/panel">Panel</a><a href="/sektor">Sektor</a>
             <a href="/risk">Risk</a><a href="/ai">AI</a><a href="/sinyal">Sinyal</a>
             <a href="/canli" class="active">Canli</a><a href="/cikis" class="cikis">Cikis</a>
+            <a href="/hedef">Hedef</a>
         </div>
         {% for alarm in alarmlar %}
         <div class="alarm"><b>ALARM!</b> {{ alarm.sembol }} - {{ alarm.fiyat }} TL - {{ alarm.aciklama }}</div>
@@ -704,6 +711,61 @@ HTML_CANLI = """
     </div>
     <script>setTimeout(function() { location.reload(); }, 30000);</script>
 </body>
+</html>
+"""
+
+
+HTML_HEDEF = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>BIST AI - Hedef Fiyat</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <style>
+        body { font-family: Arial; background: #1a1a2e; color: white; margin: 0; padding: 15px; }
+        .container { max-width: 800px; margin: auto; }
+        .header { text-align: center; padding: 20px; background: linear-gradient(135deg, #16213e, #0f3460); border-radius: 10px; margin-bottom: 15px; }
+        .header h1 { margin: 0; color: #e94560; font-size: 22px; }
+        .menu { display: flex; gap: 8px; margin: 15px 0; flex-wrap: wrap; }
+        .menu a { flex: 1; min-width: 70px; padding: 8px; background: #0f3460; color: white; text-decoration: none; border-radius: 5px; text-align: center; font-size: 13px; }
+        .menu a.active { background: #e94560; }
+        .menu a.cikis { background: #f44336; }
+        .hedef-card { background: #16213e; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 4px solid #4caf50; }
+        .hedef-card.orta { border-left-color: #ff9800; } .hedef-card.yuksek { border-left-color: #f44336; }
+        .baslik { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .sembol { font-weight: bold; font-size: 18px; } .trend-badge { font-size: 12px; padding: 3px 8px; border-radius: 4px; }
+        .trend-yukari { background: #4caf50; } .trend-asagi { background: #f44336; } .trend-yatay { background: #607d8b; }
+        .fiyat-alani { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; margin: 15px 0; padding: 15px; background: #0f3460; border-radius: 8px; }
+        .fiyat-kutu { text-align: center; } .fiyat-baslik { font-size: 11px; color: #b0bec5; text-transform: uppercase; }
+        .fiyat-deger { font-size: 22px; font-weight: bold; margin-top: 5px; } .ok { font-size: 24px; color: #e94560; }
+        .detay-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+        .detay-kutu { background: #0f3460; padding: 10px; border-radius: 5px; } .detay-baslik { font-size: 11px; color: #b0bec5; }
+        .detay-deger { font-size: 14px; font-weight: bold; margin-top: 3px; } .risk-dusuk { color: #4caf50; }
+        .risk-orta { color: #ff9800; } .risk-yuksek { color: #f44336; }
+        .info-box { background: #16213e; padding: 15px; border-radius: 8px; margin: 15px 0; text-align: center; }
+        .guven-bar { background: #0f3460; height: 12px; border-radius: 6px; margin: 10px 0; overflow: hidden; position: relative; }
+        .guven-bar-fill { height: 100%; width: 50%; background: linear-gradient(90deg, #4caf50 0%, #ff9800 50%, #f44336 100%); }
+        .guven-bar-text { position: absolute; top: 0; left: 50%; transform: translateX(-50%); font-size: 10px; line-height: 12px; }
+    </style>
+</head>
+<body><div class="container">
+    <div class="header"><h1>Hedef Fiyat Tahmini</h1><p>{{ tarih }}</p></div>
+    <div class="menu">
+        <a href="/">Portfoy</a><a href="/panel">Panel</a><a href="/sektor">Sektor</a><a href="/risk">Risk</a>
+        <a href="/ai">AI</a><a href="/sinyal">Sinyal</a><a href="/canli">Canli</a><a href="/hedef" class="active">Hedef</a><a href="/cikis" class="cikis">Cikis</a>
+    </div>
+    {% if hedefler %}{% for h in hedefler %}
+    <div class="hedef-card {{ h.risk|lower }}">
+        <div class="baslik"><div><span class="sembol">{{ h.sembol }}</span> <span class="trend-badge trend-{{ h.trend|lower }}">{{ h.trend }}</span></div><span class="risk-{{ h.risk|lower }}" style="font-weight: bold;">{{ h.risk }} RISK</span></div>
+        <div class="fiyat-alani"><div class="fiyat-kutu"><div class="fiyat-baslik">Guncel</div><div class="fiyat-deger">{{ h.guncel }} TL</div></div><div class="ok">-</div><div class="fiyat-kutu"><div class="fiyat-baslik">Hedef ({{ h.zaman_gun }} gun)</div><div class="fiyat-deger">{{ h.hedef }} TL</div></div></div>
+        <div style="text-align: center; margin: 10px 0;"><span class="risk-{{ h.risk|lower }}" style="font-size: 16px; font-weight: bold;">{{ h.degisim }}% ({{ h.zaman_gun }} gun)</span></div>
+        <div class="guven-bar"><div class="guven-bar-fill"></div><div class="guven-bar-text">Guven araligi: {{ h.guven_alt }} - {{ h.guven_ust }} TL</div></div>
+        <div class="detay-grid"><div class="detay-kutu"><div class="detay-baslik">Volatilite</div><div class="detay-deger">%{{ h.volatilite }}</div></div><div class="detay-kutu"><div class="detay-baslik">MA5 / MA20</div><div class="detay-deger">{{ h.ma_5 }} / {{ h.ma_20 }}</div></div></div>
+    </div>
+    {% endfor %}{% else %}<div class="info-box"><p>Tahminler yuklenemedi.</p></div>{% endif %}
+    <div class="info-box" style="margin-top: 20px; font-size: 12px;"><b>NOT:</b> Tahminler gecmis verilere dayanir, garanti vermez. Yatirim tavsiyesi degildir.</div>
+</div></body>
 </html>
 """
 
@@ -1071,6 +1133,47 @@ def canli_sayfasi():
             fiyatlar=[],
             alarmlar=[],
             tarih=datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
+        )
+
+
+@app.route("/hedef")
+def hedef_sayfasi():
+    kullanici = aktif_kullanici_al()
+    if not kullanici:
+        return redirect(url_for("giris"))
+
+    try:
+        from hedef_fiyat import hedef_fiyat_tahmin
+
+        portfoy_hisseler = kullanici_yoneticisi.portfoy_al(kullanici)
+        takip_semboller = [h["sembol"] for h in portfoy_hisseler]
+        populer = ["THYAO", "GARAN", "ASELS", "TUPRS", "EREGL"]
+        if not takip_semboller:
+            takip_semboller = populer
+        else:
+            for sembol in populer:
+                if sembol not in takip_semboller:
+                    takip_semboller.append(sembol)
+                if len(takip_semboller) >= 10:
+                    break
+
+        hedefler = []
+        for sembol in takip_semboller[:10]:
+            tahmin = hedef_fiyat_tahmin(sembol)
+            if tahmin:
+                hedefler.append(tahmin)
+        hedefler.sort(key=lambda item: item["degisim"], reverse=True)
+
+        return render_template_string(
+            HTML_HEDEF,
+            hedefler=hedefler,
+            tarih=datetime.now().strftime("%d.%m.%Y %H:%M"),
+        )
+    except Exception:
+        return render_template_string(
+            HTML_HEDEF,
+            hedefler=[],
+            tarih=datetime.now().strftime("%d.%m.%Y %H:%M"),
         )
 
 
