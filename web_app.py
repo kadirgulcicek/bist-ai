@@ -28,6 +28,7 @@ from ensemble_model import EnsembleTahminci
 from auth import KullaniciYoneticisi
 
 app = Flask(__name__)
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 
 kullanici_yoneticisi = KullaniciYoneticisi()
 
@@ -446,6 +447,9 @@ HTML_SINYAL = """
 <head>
     <title>BIST AI - Sinyaller</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#e94560">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -457,30 +461,43 @@ HTML_SINYAL = """
         .menu { display: flex; gap: 8px; margin: 15px 0; flex-wrap: wrap; }
         .menu a { flex: 1; min-width: 70px; padding: 8px; background: #0f3460; color: white; text-decoration: none; border-radius: 5px; text-align: center; font-size: 13px; }
         .menu a.active { background: #e94560; }
-        .sinyal-card { background: #16213e; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 5px solid #e94560; }
+        .filtre { background: #16213e; padding: 12px; margin-bottom: 15px; border-radius: 8px; display: flex; gap: 8px; }
+        .filtre-btn { flex: 1; padding: 8px; background: #0f3460; color: white; border: none; border-radius: 5px; cursor: pointer; text-decoration: none; text-align: center; font-size: 13px; }
+        .filtre-btn.aktif { background: #e94560; }
+        .sinyal-card { background: #16213e; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 5px solid #e94560; position: relative; }
         .sinyal-card.sat { border-left-color: #f44336; }
         .sinyal-card.al { border-left-color: #4caf50; }
-        .sinyal-baslik { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .sinyal-tip { font-size: 22px; font-weight: bold; padding: 5px 15px; border-radius: 5px; }
+        .sinyal-baslik { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .sinyal-sol { flex: 1; }
+        .sinyal-tip { font-size: 22px; font-weight: bold; padding: 5px 15px; border-radius: 5px; display: inline-block; }
         .tip-al { background: #4caf50; color: white; }
         .tip-sat { background: #f44336; color: white; }
         .sinyal-sembol { font-size: 22px; font-weight: bold; }
-        .sinyal-fiyat { color: #b0bec5; font-size: 14px; margin: 5px 0; }
+        .sinyal-fiyat { color: #b0bec5; font-size: 14px; margin-top: 3px; }
+        .sinyal-hedef { font-size: 13px; margin-top: 3px; }
+        .hedef-yukari { color: #4caf50; }
+        .hedef-asagi { color: #f44336; }
+        .sinyal-sag { text-align: right; }
+        .guven { margin-top: 5px; font-size: 14px; padding: 4px 10px; background: #0f3460; border-radius: 12px; display: inline-block; }
+        .guven-bar { background: #0f3460; height: 8px; border-radius: 4px; margin: 8px 0; overflow: hidden; }
+        .guven-bar-fill { height: 100%; background: linear-gradient(90deg, #f44336 0%, #ff9800 50%, #4caf50 100%); border-radius: 4px; }
         .sebepler { margin-top: 10px; }
         .sebep { display: inline-block; background: #0f3460; padding: 4px 10px; margin: 3px; border-radius: 15px; font-size: 13px; }
-        .oncelik { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 12px; margin-right: 10px; }
+        .oncelik { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 12px; margin-right: 10px; font-weight: bold; }
         .oncelik.yuksek { background: #f44336; color: white; }
         .oncelik.orta { background: #ff9800; color: white; }
-        .oncelik.dusuk { background: #607d8b; color: white; }
-        .info-box { background: #16213e; padding: 15px; border-radius: 8px; margin: 15px 0; text-align: center; font-size: 14px; }
-        .uyari { background: #5c1f1f; padding: 10px; border-radius: 5px; margin: 10px 0; font-size: 13px; }
+        .info-box { background: #16213e; padding: 15px; border-radius: 8px; margin: 15px 0; text-align: center; }
+        .yenile-btn { display: block; text-align: center; padding: 10px; background: #e94560; color: white; text-decoration: none; border-radius: 8px; margin: 15px 0; font-weight: bold; }
+        .sinyal-detay { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 10px; padding: 10px; background: #0f3460; border-radius: 5px; font-size: 12px; }
+        .detay-item { text-align: center; }
+        .detay-deger { font-size: 16px; font-weight: bold; margin-top: 3px; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1>Al-Sat Sinyalleri</h1>
-            <p>{{ tarih }}</p>
+            <p>{{ tarih }} | {{ toplam_sinyal }} aktif sinyal</p>
         </div>
         <div class="menu">
             <a href="/">Portfoy</a>
@@ -490,29 +507,45 @@ HTML_SINYAL = """
             <a href="/ai">AI</a>
             <a href="/sinyal" class="active">Sinyal</a>
         </div>
-        <div class="info-box">
-            <b>Otomatik Oneri Sistemi</b><br>
-            RSI + MACD + Volume + Trend analizi
+        <a href="/sinyal" class="yenile-btn">Yenile</a>
+        <div class="filtre">
+            <a href="/sinyal" class="filtre-btn {{ filtre_hepsi }}">Hepsi</a>
+            <a href="/sinyal?tip=AL" class="filtre-btn {{ filtre_al }}">AL</a>
+            <a href="/sinyal?tip=SAT" class="filtre-btn {{ filtre_sat }}">SAT</a>
+            <a href="/sinyal?tip=PORTFOY" class="filtre-btn {{ filtre_portfoy }}">Portfoyum</a>
         </div>
         {% if sinyaller %}
             {% for s in sinyaller %}
             <div class="sinyal-card {{ s.karar|lower }}">
                 <div class="sinyal-baslik">
-                    <div>
+                    <div class="sinyal-sol">
                         <div class="sinyal-sembol">{{ s.sembol }}</div>
-                        <div class="sinyal-fiyat">Fiyat: {{ s.fiyat }} TL</div>
+                        <div class="sinyal-fiyat">{{ s.fiyat }} TL</div>
+                        {% if s.hedef %}
+                        <div class="sinyal-hedef">Hedef: <span class="{{ s.hedef_renk }}">{{ s.hedef }} TL ({{ s.hedef_degisim }})</span></div>
+                        {% endif %}
                     </div>
-                    <div class="sinyal-tip tip-{{ s.karar|lower }}">{{ s.karar }}</div>
+                    <div class="sinyal-sag">
+                        <div class="sinyal-tip tip-{{ s.karar|lower }}">{{ s.karar }}</div>
+                        <div class="guven">Guven: {{ s.guven }}%</div>
+                    </div>
                 </div>
+                <div class="guven-bar"><div class="guven-bar-fill" style="width: {{ s.guven }}%;"></div></div>
                 <div>
                     <span class="oncelik {{ s.oncelik|lower }}">{{ s.oncelik }}</span>
-                    <span style="font-size: 13px; color: #b0bec5;">RSI: {{ s.rsi }} | MACD: {{ s.macd }}</span>
                 </div>
                 <div class="sebepler">
                     {% for sebep in s.sebepler %}
                     <span class="sebep">{{ sebep }}</span>
                     {% endfor %}
                 </div>
+                {% if s.rsi or s.macd or s.trend %}
+                <div class="sinyal-detay">
+                    <div class="detay-item"><div>RSI</div><div class="detay-deger {{ s.rsi_renk }}">{{ s.rsi }}</div></div>
+                    <div class="detay-item"><div>MACD</div><div class="detay-deger {{ s.macd_renk }}">{{ s.macd }}</div></div>
+                    <div class="detay-item"><div>Trend</div><div class="detay-deger {{ s.trend_renk }}">{{ s.trend }}</div></div>
+                </div>
+                {% endif %}
             </div>
             {% endfor %}
             <div class="uyari">
@@ -813,40 +846,96 @@ def sinyal_sayfasi():
     try:
         from otomatik_sistem import OtomatikSistem
 
+        filtre = request.args.get("tip", "HEPSI").upper()
         sistem = OtomatikSistem()
         sinyaller_raw = sistem.portfoy_analiz(None)
-        sinyaller = [
-            {
-                "sembol": sinyal["sembol"],
-                "fiyat": sinyal["fiyat"],
-                "karar": sinyal["karar"],
-                "oncelik": sinyal["oncelik"],
-                "rsi": sinyal["rsi"],
-                "macd": sinyal["macd"],
-                "sebepler": sinyal["sebepler"],
+
+        if filtre == "AL":
+            sinyaller_raw = [s for s in sinyaller_raw if s["karar"] == "AL"]
+        elif filtre == "SAT":
+            sinyaller_raw = [s for s in sinyaller_raw if s["karar"] == "SAT"]
+        elif filtre == "PORTFOY":
+            kullanici = aktif_kullanici_al()
+            portfoy_semboller = []
+            if kullanici:
+                portfoy_semboller = [
+                    h["sembol"] for h in kullanici_yoneticisi.portfoy_al(kullanici)
+                ]
+            sinyaller_raw = [
+                s for s in sinyaller_raw if s["sembol"] in portfoy_semboller
+            ]
+
+        sinyaller = []
+        for kaynak in sinyaller_raw:
+            rsi = kaynak.get("rsi", "-")
+            macd = kaynak.get("macd", "-")
+            sinyal = {
+                "sembol": kaynak["sembol"],
+                "fiyat": kaynak["fiyat"],
+                "karar": kaynak["karar"],
+                "oncelik": kaynak.get("oncelik", "DUSUK"),
+                "sebepler": kaynak.get("sebepler", []),
+                "rsi": rsi,
+                "macd": macd,
+                "trend": "-",
+                "rsi_renk": "",
+                "macd_renk": "",
+                "trend_renk": "",
+                "guven": 85 if kaynak.get("oncelik") == "YUKSEK" else 65 if kaynak.get("oncelik") == "ORTA" else 40,
+                "hedef": None,
+                "hedef_renk": "",
+                "hedef_degisim": "",
             }
-            for sinyal in sinyaller_raw
-        ]
+
+            if isinstance(rsi, (int, float)):
+                if rsi < 35:
+                    sinyal["rsi_renk"] = "hedef-yukari"
+                elif rsi > 70:
+                    sinyal["rsi_renk"] = "hedef-asagi"
+            if isinstance(macd, (int, float)):
+                sinyal["macd_renk"] = "hedef-yukari" if macd > 0 else "hedef-asagi"
+
+            sebepler = kaynak.get("sebepler", [])
+            if "Trend" in str(sebepler):
+                sinyal["trend"] = "YUKARI"
+                sinyal["trend_renk"] = "hedef-yukari"
+            elif any("Hacim" in str(sebep) for sebep in sebepler):
+                sinyal["trend"] = "HACIM"
+                sinyal["trend_renk"] = "hedef-yukari"
+
+            try:
+                if kaynak["karar"] == "AL":
+                    sinyal["hedef"] = round(kaynak["fiyat"] * 1.10, 2)
+                    sinyal["hedef_renk"] = "hedef-yukari"
+                    sinyal["hedef_degisim"] = "+10%"
+                elif kaynak["karar"] == "SAT":
+                    sinyal["hedef"] = round(kaynak["fiyat"] * 0.95, 2)
+                    sinyal["hedef_renk"] = "hedef-asagi"
+                    sinyal["hedef_degisim"] = "-5%"
+            except (TypeError, ValueError):
+                pass
+            sinyaller.append(sinyal)
+
         return render_template_string(
             HTML_SINYAL,
             sinyaller=sinyaller,
+            toplam_sinyal=len(sinyaller),
             tarih=datetime.now().strftime("%d.%m.%Y %H:%M"),
+            filtre_hepsi="aktif" if filtre == "HEPSI" else "",
+            filtre_al="aktif" if filtre == "AL" else "",
+            filtre_sat="aktif" if filtre == "SAT" else "",
+            filtre_portfoy="aktif" if filtre == "PORTFOY" else "",
         )
     except Exception as e:
         return render_template_string(
             HTML_SINYAL,
-            sinyaller=[
-                {
-                    "sembol": "HATA",
-                    "fiyat": "-",
-                    "karar": "BEKLE",
-                    "oncelik": "DUSUK",
-                    "rsi": "-",
-                    "macd": "-",
-                    "sebepler": [str(e)[:50]],
-                }
-            ],
+            sinyaller=[],
+            toplam_sinyal=0,
             tarih=datetime.now().strftime("%d.%m.%Y %H:%M"),
+            filtre_hepsi="",
+            filtre_al="",
+            filtre_sat="",
+            filtre_portfoy="",
         )
 
 
