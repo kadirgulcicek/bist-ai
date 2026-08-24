@@ -136,3 +136,20 @@ class KullaniciYoneticisi:
                   (json.dumps(portfoy), kullanici_adi))
         self.conn.commit()
         return True
+
+    def hisse_sil(self, kullanici_adi, sembol):
+        """Kullanicinin portfoyunden tek bir hisseyi sil"""
+        kullanici_adi = kullanici_adi.lower().strip()
+        sembol = sembol.upper().strip()
+
+        portfoy = self.portfoy_al(kullanici_adi)
+        yeni_portfoy = [
+            hisse for hisse in portfoy
+            if hisse["sembol"].upper() != sembol
+        ]
+
+        if len(yeni_portfoy) == len(portfoy):
+            return False
+
+        self.portfoy_kaydet(kullanici_adi, yeni_portfoy)
+        return True

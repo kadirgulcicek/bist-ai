@@ -214,9 +214,29 @@ HTML_PORTFOY = """
         <h2>Hisseler</h2>
         {% if hisseler %}
         <table>
-            <tr><th>Hisse</th><th>Adet</th><th>Alis</th><th>Guncel</th><th>Kar %</th></tr>
+            <tr>
+                <th>Hisse</th>
+                <th>Adet</th>
+                <th>Alis</th>
+                <th>Guncel</th>
+                <th>Kar %</th>
+                <th style="width: 60px;">Islem</th>
+            </tr>
             {% for h in hisseler %}
-            <tr><td><b>{{ h.sembol }}</b></td><td>{{ h.adet }}</td><td>{{ h.alis }}</td><td>{{ h.guncel }}</td><td class="{{ h.renk }}">{{ h.kar_yuzde }}%</td></tr>
+            <tr>
+                <td><b>{{ h.sembol }}</b></td>
+                <td>{{ h.adet }}</td>
+                <td>{{ h.alis }}</td>
+                <td>{{ h.guncel }}</td>
+                <td class="{{ h.renk }}">{{ h.kar_yuzde }}%</td>
+                <td style="text-align: center;">
+                    <a href="/hisse-sil/{{ h.sembol }}"
+                       style="background: #f44336; color: white; padding: 5px 12px; border-radius: 4px; text-decoration: none; font-weight: bold;"
+                       onclick="return confirm('{{ h.sembol }} hissesini portfoyden silmek istediginize emin misiniz?')">
+                        X
+                    </a>
+                </td>
+            </tr>
             {% endfor %}
         </table>
         {% else %}<p>Portfoy bos.</p>{% endif %}
@@ -686,6 +706,19 @@ def portfoy_temizle():
         return redirect(url_for("index"))
     except Exception as e:
         return f"Hata: {e}"
+
+
+@app.route("/hisse-sil/<sembol>")
+def hisse_sil(sembol):
+    """Tek bir hisseyi portfoyden sil"""
+    kullanici = aktif_kullanici_al()
+    if not kullanici:
+        return redirect(url_for("giris"))
+
+    basarili = kullanici_yoneticisi.hisse_sil(kullanici, sembol)
+    if basarili:
+        return redirect(url_for("index"))
+    return f"<h1>Hata</h1><p>{sembol} portfoyde bulunamadi.</p><a href='/'>Geri don</a>"
 
 
 # ============================================
