@@ -13,6 +13,19 @@ from datetime import datetime
 from portfoy import Portfoy
 from sektor_analiz import sektor_analiz_yap, HISSE_SEKTORLERI
 from risk_analiz import cesitlendirme_puani
+try:
+    from risk_gelismis import portfoy_risk_analiz
+    risk_modulu_yuklu = True
+except ImportError:
+    from risk_analiz import (
+        portfoy_verilerini_al,
+        konsantrasyon_riski,
+        volatilite_riski,
+        drawdown_riski,
+        cesitlendirme_puani,
+        korelasyon_analizi
+    )
+    risk_modulu_yuklu = False
 from ensemble_model import EnsembleTahminci
 from auth import KullaniciYoneticisi
 
@@ -816,8 +829,39 @@ def risk():
         )
 
     try:
-        from risk_gelismis import portfoy_risk_analiz
-        sonuc = portfoy_risk_analiz(portfoy_hisseler)
+        if risk_modulu_yuklu:
+            sonuc = portfoy_risk_analiz(portfoy_hisseler)
+        else:
+            from risk_analiz import portfoy_verilerini_al, cesitlendirme_puani
+            veri = portfoy_verilerini_al()
+            if not veri:
+                return "Risk analizi yapilamadi (eski modul)."
+            puan = cesitlendirme_puani(veri["hisseler"], veri["toplam_deger"])
+            sonuc = {
+                "hisse_verileri": [{
+                    "sembol": h["sembol"], "agirlik": 0,
+                    "sharpe": 0, "max_drawdown": 0,
+                    "volatilite": 0, "beta": 1,
+                    "risk_skor": 5, "kar": 0, "kar_yuzde": 0
+                } for h in veri["hisseler"]],
+                "korelasyonlar": [],
+                "toplam_deger": veri["toplam_deger"],
+                "toplam_maliyet": veri["toplam_deger"],
+                "toplam_kar": 0,
+                "toplam_kar_yuzde": 0,
+                "portfoy_sharpe": 0,
+                "portfoy_volatilite": 0,
+                "portfoy_var": 0,
+                "portfoy_beta": 1,
+                "cesitlendirme": puan,
+                "genel_risk": 50,
+                "risk_seviye": "ORTA",
+                "risk_renk": "#ff9800",
+                "oneriler": [
+                    "risk_gelismis.py modulu bulunamadi, basit analiz gosteriliyor."
+                ]
+            }
+
         if not sonuc:
             return "Risk analizi yapilamadi."
 
@@ -840,7 +884,7 @@ def risk():
             puan_yorum=puan_yorum,
         )
     except Exception as e:
-        return f"Hata: {e}"
+        return f"Risk analizi yapilamadi. Hata: {str(e)[:80]}"
 
 
 @app.route("/ai")
