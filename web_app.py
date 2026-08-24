@@ -1,7 +1,3 @@
-TELEGRAM_TOKEN = "8767340022:AAFCRoyZGCqDRdjgGLpcX56oHEXmml4D-ec"
-TELEGRAM_CHAT_ID = "2035245736"
-
-
 """
 BIST AI - Web Uygulamasi (Tam Versiyon)
 Portfoy + Sektor + Risk Analizi
@@ -208,7 +204,6 @@ HTML_PORTFOY = """
             <a href="/risk">Risk</a>
             <a href="/ai">AI</a>
             <a href="/sinyal">Sinyal</a>
-            <a href="/telegram">Telegram</a>
         </div>
         <div class="stats">
             <div class="stat-card"><div>Deger</div><div class="stat-value">{{ toplam_deger }} TL</div></div>
@@ -277,7 +272,6 @@ HTML_SEKTOR = """
             <a href="/risk">Risk</a>
             <a href="/ai">AI</a>
             <a href="/sinyal">Sinyal</a>
-            <a href="/telegram">Telegram</a>
         </div>
         <h2>Sektor Performansi</h2>
         {% for s in sektorler %}
@@ -338,7 +332,6 @@ HTML_RISK = """
             <a href="/risk" class="active">Risk</a>
             <a href="/ai">AI</a>
             <a href="/sinyal">Sinyal</a>
-            <a href="/telegram">Telegram</a>
         </div>
         <div class="section">
             <h3>Risk Ozeti</h3>
@@ -396,7 +389,6 @@ HTML_AI = """
             <a href="/risk">Risk</a>
             <a href="/ai" class="active">AI</a>
             <a href="/sinyal">Sinyal</a>
-            <a href="/telegram">Telegram</a>
         </div>
         <div class="info-box">
             <h3>Ensemble AI Model</h3>
@@ -477,7 +469,6 @@ HTML_SINYAL = """
             <a href="/risk">Risk</a>
             <a href="/ai">AI</a>
             <a href="/sinyal" class="active">Sinyal</a>
-            <a href="/telegram">Telegram</a>
         </div>
         <div class="info-box">
             <b>Otomatik Oneri Sistemi</b><br>
@@ -562,7 +553,6 @@ HTML_PANEL = """
             <a href="/risk">Risk</a>
             <a href="/ai">AI</a>
             <a href="/sinyal">Sinyal</a>
-            <a href="/telegram">Telegram</a>
         </div>
         <a href="/panel" class="yenile-btn">Yenile</a>
         <div class="dashboard">
@@ -919,123 +909,6 @@ def panel_sayfasi():
         )
     except Exception as e:
         return f"<h1>Hata</h1><p>{e}</p>"
-
-
-# ============================================
-# TELEGRAM
-# ============================================
-@app.route("/telegram")
-def telegram_sayfasi():
-    kullanici = aktif_kullanici_al()
-    if not kullanici:
-        return redirect(url_for("giris"))
-
-    try:
-        import telegram
-        bot = telegram.Bot(token=TELEGRAM_TOKEN)
-        bot.get_me()
-        durum = "Telegram baglantisi aktif"
-        durum_renk = "#4caf50"
-    except Exception as e:
-        durum = "Hata: " + str(e)[:80]
-        durum_renk = "#f44336"
-
-    html = """
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Telegram</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-        body { font-family: Arial; background: #1a1a2e; color: white; margin: 0; padding: 15px; }
-        .container { max-width: 800px; margin: auto; }
-        .header { text-align: center; padding: 20px; background: linear-gradient(135deg, #16213e, #0f3460); border-radius: 10px; margin-bottom: 15px; }
-        .header h1 { margin: 0; color: #e94560; font-size: 22px; }
-        .menu { display: flex; gap: 8px; margin: 15px 0; flex-wrap: wrap; }
-        .menu a { flex: 1; min-width: 70px; padding: 8px; background: #0f3460; color: white; text-decoration: none; border-radius: 5px; text-align: center; font-size: 13px; }
-        .menu a.active { background: #e94560; }
-        .durum { background: #16213e; padding: 15px; border-radius: 8px; margin: 15px 0; text-align: center; font-size: 16px; font-weight: bold; }
-        .btn { display: block; text-align: center; padding: 15px; background: #e94560; color: white; text-decoration: none; border-radius: 8px; margin: 15px 0; font-weight: bold; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header"><h1>Telegram Bildirim</h1></div>
-        <div class="menu">
-            <a href="/">Portfoy</a>
-            <a href="/panel">Panel</a>
-            <a href="/sektor">Sektor</a>
-            <a href="/risk">Risk</a>
-            <a href="/ai">AI</a>
-            <a href="/telegram" class="active">Telegram</a>
-        </div>
-        <div class="durum" style="background: """ + durum_renk + """;">
-            """ + durum + """
-        </div>
-        <a class="btn" href="/telegram-gonder">Portfoy Raporu Gonder</a>
-        <a class="btn" href="/telegram-sinyal" style="background:#4caf50;">Sinyal Raporu Gonder</a>
-        <a class="btn" href="/telegram-ai" style="background:#ff9800;">AI Tahmin Gonder</a>
-    </div>
-</body>
-</html>
-"""
-    return html
-
-
-@app.route("/telegram-gonder")
-def telegram_gonder():
-    kullanici = aktif_kullanici_al()
-    if not kullanici:
-        return redirect(url_for("giris"))
-    try:
-        import telegram
-        bot = telegram.Bot(token=TELEGRAM_TOKEN)
-        portfoy_hisseler = kullanici_yoneticisi.portfoy_al(kullanici)
-        veri = portfoy_veri_hazirla_icin(portfoy_hisseler)
-        mesaj = "BIST AI Portfoy\n"
-        mesaj += "Tarih: " + datetime.now().strftime("%d.%m.%Y %H:%M") + "\n\n"
-        mesaj += "Toplam: " + veri["toplam_deger"] + " TL\n"
-        mesaj += "Kar: " + veri["toplam_kar"] + " TL\n\n"
-        for h in veri["hisseler"][:10]:
-            mesaj += "- " + h["sembol"] + ": " + h["guncel"] + " TL (" + h["kar_yuzde"] + "%)\n"
-        bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=mesaj)
-        return "<h1 style='color:green'>Mesaj gonderildi!</h1><a href='/telegram'>Geri don</a>"
-    except Exception as e:
-        return "<h1 style='color:red'>Hata</h1><p>" + str(e) + "</p><a href='/telegram'>Geri don</a>"
-
-
-@app.route("/telegram-sinyal")
-def telegram_sinyal_gonder():
-    kullanici = aktif_kullanici_al()
-    if not kullanici:
-        return redirect(url_for("giris"))
-    try:
-        import telegram
-        bot = telegram.Bot(token=TELEGRAM_TOKEN)
-        bot.send_message(
-            chat_id=TELEGRAM_CHAT_ID,
-            text="Sinyal raporu ozelligi aktif!\n\nSinyaller artik Telegram'a gonderilebilir."
-        )
-        return "<h1 style='color:green'>Mesaj gonderildi!</h1><a href='/telegram'>Geri don</a>"
-    except Exception as e:
-        return "<h1 style='color:red'>Hata</h1><p>" + str(e) + "</p><a href='/telegram'>Geri don</a>"
-
-
-@app.route("/telegram-ai")
-def telegram_ai_gonder():
-    kullanici = aktif_kullanici_al()
-    if not kullanici:
-        return redirect(url_for("giris"))
-    try:
-        import telegram
-        bot = telegram.Bot(token=TELEGRAM_TOKEN)
-        bot.send_message(
-            chat_id=TELEGRAM_CHAT_ID,
-            text="AI tahmin ozelligi aktif!\n\nAI tahminleri artik Telegram'a gonderilebilir."
-        )
-        return "<h1 style='color:green'>Mesaj gonderildi!</h1><a href='/telegram'>Geri don</a>"
-    except Exception as e:
-        return "<h1 style='color:red'>Hata</h1><p>" + str(e) + "</p><a href='/telegram'>Geri don</a>"
 
 
 # ============================================
