@@ -78,6 +78,72 @@ def risk_yorum_uret(puan):
     return "Cok tehlikeli!"
 
 
+def tek_hisse_teknik_risk_hesapla(sembol):
+    """Tek hisseyi dort teknik baslikla 10 uzerinden puanlar."""
+    try:
+        ticker = yf.Ticker(f"{sembol}.IS")
+        veri = ticker.history(period="1y", auto_adjust=False)
+        if veri is None or veri.empty or "Close" not in veri.columns:
+            return None
+
+        fiyatlar = veri["Close"].dropna().astype(float)
+        if len(fiyatlar) < 60:
+            return None
+
+        fiyat = float(fiyatlar.iloc[-1])
+        ema21 = float(fiyatlar.ewm(span=21, adjust=False).mean().iloc[-1])
+        ema50 = float(fiyatlar.ewm(span=50, adjust=False).mean().iloc[-1])
+        macd_serisi = fiyatlar.ewm(span=12, adjust=False).mean() - fiyatlar.ewm(span=26, adjust=False).mean()
+        macd = float(macd_serisi.iloc[-1])
+        macd_sinyal = float(macd_serisi.ewm(span=9, adjust=False).mean().iloc[-1])
+
+        degisim = fiyatlar.diff()
+        kazanc = degisim.clip(lower=0).rolling(14).mean()
+        kayip = -degisim.clip(upper=0).rolling(14).mean()
+        rs = kazanc / kayip.replace(0, np.nan)
+        rsi_serisi = (100 - (100 / (1 + rs))).fillna(100)
+        rsi = float(rsi_serisi.iloc[-1])
+
+        orta = fiyatlar.rolling(20).mean()
+        standart_sapma = fiyatlar.rolling(20).std()
+        ust_bant = float((orta + 2 * standart_sapma).iloc[-1])
+        alt_bant = float((orta - 2 * standart_sapma).iloc[-1])
+        orta_deger = float(orta.iloc[-1])
+
+        rsi14 = rsi_serisi.dropna()
+        rsi_min = rsi14.rolling(14).min()
+        rsi_max = rsi14.rolling(14).max()
+        stoch_rsi = ((rsi14 - rsi_min) / (rsi_max - rsi_min).replace(0, np.nan) * 100).fillna(50)
+        stoch = float(stoch_rsi.iloc[-1])
+
+        momentum_puan = 8 if macd > macd_sinyal and macd > 0 else 6 if macd > macd_sinyal else 3
+        rsi_puan = 9 if 30 <= rsi <= 70 else 5 if rsi < 30 else 2
+        trend_puan = 10 if fiyat > ema21 > ema50 else 8 if fiyat > ema50 else 3
+        bant_puan = 8 if alt_bant <= fiyat <= orta_deger else 6 if fiyat < alt_bant else 3
+        destek_puan = round((trend_puan + bant_puan) / 2, 1)
+        donus_puan = 9 if stoch < 20 else 8 if stoch > 80 else 6
+        puanlar = [momentum_puan, rsi_puan, destek_puan, donus_puan]
+
+        return {
+            "sembol": sembol,
+            "fiyat": round(fiyat, 2),
+            "macd": round(momentum_puan, 1),
+            "macd_deger": round(macd, 3),
+            "rsi": round(rsi_puan, 1),
+            "rsi_deger": round(rsi, 2),
+            "destek_direnc": round(destek_puan, 1),
+            "ema21": round(ema21, 2),
+            "ema50": round(ema50, 2),
+            "stochastic": round(donus_puan, 1),
+            "stochastic_deger": round(stoch, 2),
+            "ortalama": round(sum(puanlar) / len(puanlar), 1),
+            "bollinger_alt": round(alt_bant, 2),
+            "bollinger_ust": round(ust_bant, 2),
+        }
+    except Exception:
+        return None
+
+
 def portfoy_veri_hazirla_icin(hisseler_listesi):
     hisseler = []
     toplam_maliyet = 0
@@ -236,14 +302,6 @@ input{width:100%;padding:10px;margin:5px 0;border:none;border-radius:5px;backgro
 </div>
 {% endif %}
 
-<h2>Tek Hisse Risk Sorgula</h2>
-<form method="POST" action="/risk-sorgula" style="margin-bottom:20px;">
-<input name="sembol" placeholder="Hisse (orn: THYAO)" required>
-<input name="adet" type="number" min="1" placeholder="Adet" required>
-<input name="fiyat" type="number" step="0.01" min="0.01" placeholder="Alis fiyatı" required>
-<button class="btn" type="submit">Risk Sorgula</button>
-</form>
-
 <h2>Hisseler</h2>
 {% if hisseler %}
 <table>
@@ -359,8 +417,13 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 .oneri-item{padding:14px 16px;border-radius:10px;background:rgba(15,52,96,.8);border-left:4px solid #e94560;font-size:14px;line-height:1.5}
 .oneri-item:nth-child(odd){border-left-color:#4caf50}
 .oneri-item:nth-child(even){border-left-color:#ff9800}
+.query-form{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end}
+.query-form label{display:block;color:#b0bec5;font-size:11px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+.query-form input{width:100%;padding:11px;border:1px solid rgba(255,255,255,.1);border-radius:7px;background:#0f3460;color:white;box-sizing:border-box}
+.query-form .btn{padding:11px 18px;background:#e94560;color:white;border:0;border-radius:7px;cursor:pointer;font-weight:700;white-space:nowrap}
 @media (max-width: 700px){.summary-grid,.metrik-grid{grid-template-columns:1fr 1fr}.}
-@media (max-width: 520px){.summary-grid,.metrik-grid{grid-template-columns:1fr}. .menu a{min-width:calc(50% - 8px)} }
+@media (max-width: 700px){.query-form{grid-template-columns:1fr 1fr}.query-form .btn{width:100%}}
+@media (max-width: 520px){.summary-grid,.metrik-grid{grid-template-columns:1fr}. .menu a{min-width:calc(50% - 8px)} .query-form{grid-template-columns:1fr}}
 </style></head>
 <body>
 <div class="container">
@@ -371,6 +434,30 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 <a href="/canli">Canli</a><a href="/hedef">Hedef</a><a href="/bildirim">Bildirim</a>
 <a href="/cikis" class="cikis">Cikis</a>
 </div>
+
+<div class="section">
+<h3>Tek Hisse Risk Sorgula</h3>
+<form method="POST" action="/risk-sorgula" class="query-form">
+<div><label for="risk-sembol">Hisse</label><input id="risk-sembol" name="sembol" placeholder="THYAO" required></div>
+<button class="btn" type="submit">Risk Sorgula</button>
+</form>
+</div>
+
+{% if tek_hisse_analizi %}
+<div class="section">
+<h3>{{ tek_hisse_analizi.sembol }} Teknik Risk Skoru</h3>
+<div class="puan-sayi" style="color:{{ risk_renk }}">{{ tek_hisse_analizi.ortalama }}/10</div>
+<div class="metrik-grid">
+<div class="metrik-kutu"><div class="metrik-baslik">Momentum & Trend: MACD (12, 26, 9)</div><div class="metrik-deger">{{ tek_hisse_analizi.macd }}/10</div><div class="metrik-sub">Trendin yönünü ve gücünü gösterir. MACD: {{ tek_hisse_analizi.macd_deger }}</div></div>
+<div class="metrik-kutu"><div class="metrik-baslik">Göreceli Güç: RSI (14)</div><div class="metrik-deger">{{ tek_hisse_analizi.rsi }}/10</div><div class="metrik-sub">70+ aşırı alım, 30- aşırı satım. RSI: {{ tek_hisse_analizi.rsi_deger }}</div></div>
+<div class="metrik-kutu"><div class="metrik-baslik">Dinamik Destek/Direnç</div><div class="metrik-deger">{{ tek_hisse_analizi.destek_direnc }}/10</div><div class="metrik-sub">EMA 21: {{ tek_hisse_analizi.ema21 }} | EMA 50: {{ tek_hisse_analizi.ema50 }}<br>Bant: {{ tek_hisse_analizi.bollinger_alt }} - {{ tek_hisse_analizi.bollinger_ust }}</div></div>
+<div class="metrik-kutu"><div class="metrik-baslik">Volatiliteli Hızlı Dönüşler</div><div class="metrik-deger">{{ tek_hisse_analizi.stochastic }}/10</div><div class="metrik-sub">Stochastic RSI: {{ tek_hisse_analizi.stochastic_deger }}</div></div>
+</div>
+</div>
+{% endif %}
+{% if sorgulanan_sembol and not tek_hisse_analizi %}
+<div class="alert warning">{{ sorgulanan_sembol }} için yeterli piyasa verisi alınamadı. Sembolü kontrol edip tekrar deneyin.</div>
+{% endif %}
 
 <div class="risk-hero">
 <div class="risk-header-row">
@@ -383,7 +470,7 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 
 <div class="summary-grid">
 <div class="summary-card"><div class="label">Toplam Değer</div><div class="value">{{ toplam_deger }} TL</div><div class="sub">Maliyet: {{ toplam_maliyet }} TL</div></div>
-<div class="summary-card"><div class="label">Kar/Zarar</div><div class="value" style="color:{% if toplam_kar_yuzde >= 0 %}#4caf50{% else %}#f44336{% endif %}">{{ toplam_kar_yuzde }}%</div><div class="sub">{{ toplam_kar }} TL</div></div>
+<div class="summary-card"><div class="label">Kar/Zarar</div><div class="value">{{ toplam_kar_yuzde }}%</div><div class="sub">{{ toplam_kar }} TL</div></div>
 <div class="summary-card"><div class="label">Cesitlendirme</div><div class="value">{{ cesitlendirme }}/100</div><div class="sub">Dengeli dağılım</div></div>
 <div class="summary-card"><div class="label">Sharpe</div><div class="value">{{ portfoy_sharpe }}</div><div class="sub">Risk/getiri oranı</div></div>
 </div>
@@ -870,20 +957,9 @@ def risk_sorgula():
             return redirect(url_for("giris"))
 
         sembol = (request.form.get("sembol", "") or "").upper().replace(".IS", "")
-        adet = int(request.form.get("adet", 0) or 0)
-        fiyat = float(request.form.get("fiyat", 0) or 0)
-
-        if not sembol or adet <= 0 or fiyat <= 0:
-            return redirect(url_for("index"))
-
-        sonuc = portfoy_risk_hesapla([{"sembol": sembol, "adet": adet, "alis_fiyati": fiyat}])
-        if not sonuc:
-            return redirect(url_for("index"))
-
-        sonuc["risk_renk"] = risk_renk_hesapla(sonuc.get("genel_risk", 0))
-        sonuc["risk_seviye"] = risk_seviyesi_hesapla(sonuc.get("genel_risk", 0))
-        sonuc["puan_yorum"] = risk_yorum_uret(sonuc.get("cesitlendirme", 0))
-        return render_template_string(HTML_RISK, **sonuc, puan=sonuc["cesitlendirme"], puan_yorum=sonuc["puan_yorum"])
+        if not sembol:
+            return redirect(url_for("risk"))
+        return redirect(url_for("risk", sembol=sembol))
     except Exception as e:
         return f"<h1>Hata</h1><p>{e}</p><a href='/'>Geri don</a>"
 
@@ -936,24 +1012,32 @@ def sektor():
 
 @app.route("/risk")
 def risk():
-    kullanici = aktif_kullanici_al()
-    if not kullanici:
-        return redirect(url_for("giris"))
+    try:
+        kullanici = aktif_kullanici_al()
+        if not kullanici:
+            return redirect(url_for("giris"))
 
-    portfoy_hisseler = kullanici_yoneticisi.portfoy_al(kullanici)
-    if not portfoy_hisseler:
-        return render_template_string(
-            HTML_RISK,
-            tarih=datetime.now().strftime("%d.%m.%Y %H:%M"),
-            toplam_deger="0", toplam_maliyet="0",
-            toplam_kar="0", toplam_kar_yuzde="0",
-            portfoy_sharpe="0", portfoy_volatilite="0",
-            portfoy_var="0", portfoy_beta="0",
-            cesitlendirme="0", genel_risk="0",
-            risk_seviye="VERI YOK", risk_renk="#607d8b",
-            puan_yorum="Portfoye hisse ekleyin.",
-            hisse_verileri=[], korelasyonlar=[], oneriler=[]
-        )
+        sembol = (request.args.get("sembol", "") or "").upper().replace(".IS", "")
+        tek_hisse_analizi = tek_hisse_teknik_risk_hesapla(sembol) if sembol else None
+        portfoy_hisseler = kullanici_yoneticisi.portfoy_al(kullanici)
+        if not portfoy_hisseler:
+            return render_template_string(
+                HTML_RISK,
+                tarih=datetime.now().strftime("%d.%m.%Y %H:%M"),
+                toplam_deger="0", toplam_maliyet="0",
+                toplam_kar="0", toplam_kar_yuzde=0,
+                portfoy_sharpe="0", portfoy_volatilite="0",
+                portfoy_var="0", portfoy_beta="0",
+                cesitlendirme="0", genel_risk="0",
+                risk_seviye="VERI YOK", risk_renk="#607d8b",
+                puan_yorum="Portfoye hisse ekleyin.",
+                hisse_verileri=[], korelasyonlar=[], oneriler=[],
+                tek_hisse_analizi=tek_hisse_analizi,
+                sorgulanan_sembol=sembol
+            )
+    except Exception:
+        app.logger.exception("Risk sayfasi kullanici verisi yuklenemedi")
+        return redirect(url_for("giris"))
 
     try:
         sonuc = portfoy_risk_hesapla(portfoy_hisseler)
@@ -975,6 +1059,8 @@ def risk():
             **sonuc,
             puan=puan,
             puan_yorum=puan_yorum,
+            tek_hisse_analizi=tek_hisse_analizi,
+            sorgulanan_sembol=sembol,
         )
     except Exception as e:
         return f"Risk analizi yapilamadi. Hata: {str(e)[:80]}"
