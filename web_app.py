@@ -78,6 +78,20 @@ def risk_yorum_uret(puan):
     return "Cok tehlikeli!"
 
 
+def cesitlendirme_puani(portfoy_data, toplam_deger):
+    """Portfoy yogunlasmasina gore 0-100 cesitlendirme puani verir."""
+    if not portfoy_data or toplam_deger <= 0:
+        return 0
+
+    agirliklar = [hisse["deger"] / toplam_deger for hisse in portfoy_data]
+    yogunlasma = max(agirliklar)
+    hisse_puani = min(50, len(agirliklar) * 10)
+    yogunlasma_puani = max(0, 50 - yogunlasma * 50)
+    sektor_sayisi = len({hisse["sektor"] for hisse in portfoy_data})
+    sektor_puani = min(20, sektor_sayisi * 5)
+    return round(min(100, hisse_puani + yogunlasma_puani + sektor_puani))
+
+
 def tek_hisse_teknik_risk_hesapla(sembol):
     """Tek hisseyi dort teknik baslikla 10 uzerinden puanlar."""
     try:
