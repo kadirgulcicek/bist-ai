@@ -1,6 +1,6 @@
 """
 Stop-Loss Uyarı Sistemi
-Hisseler zarar limitine ulaşınca Telegram'dan uyarı gönderir
+Hisseler zarar limitine ulaşınca yerel uyarı üretir
 """
 
 import json
@@ -8,18 +8,13 @@ import os
 import yfinance as yf
 from datetime import datetime
 from portfoy import Portfoy
-from telegram_bot import BISTTelegramBot
-
-# BURAYA KENDİ BİLGİLERİNİZİ YAZIN
-TOKEN = "BURAYA_TOKEN"
-CHAT_ID = "BURAYA_CHAT_ID"
 
 
 class StopLossSistemi:
     def __init__(self):
         self.dosya = "stop_loss.json"
         self.kurallar = self.yukle()
-        self.bot = BISTTelegramBot(TOKEN, CHAT_ID)
+        self.bot = None
         self.uyarilan = self.uyari_durumu_yukle()
     
     def yukle(self):
@@ -124,30 +119,13 @@ class StopLossSistemi:
         
         # Uyarıları gönder
         if uyarilar:
-            self.telegram_uyari_gonder(uyarilar)
+            self.uyari_yazdir(uyarilar)
         
         return uyarilar
     
-    def telegram_uyari_gonder(self, uyarilar):
-        """Telegram'a stop-loss uyarısı gönderir"""
-        mesaj = "🛑 <b>STOP-LOSS UYARISI!</b>\n\n"
-        mesaj += "Aşağıdaki hisseler zarar limitine ulaştı:\n\n"
-        
-        toplam_zarar = 0
-        for u in uyarilar:
-            mesaj += f"🔴 <b>{u['sembol']}</b>\n"
-            mesaj += f"   Alış: {u['alis']:.2f} TL\n"
-            mesaj += f"   Güncel: {u['guncel']:.2f} TL\n"
-            mesaj += f"   Değişim: <b>{u['kar_yuzde']:+.2f}%</b>\n"
-            mesaj += f"   Zarar: <b>{u['zarar_tl']:+,.0f} TL</b>\n"
-            mesaj += f"   Limit: %{u['limit']}\n\n"
-            toplam_zarar += u['zarar_tl']
-        
-        mesaj += f"💸 <b>Toplam Zarar: {toplam_zarar:+,.0f} TL</b>\n\n"
-        mesaj += "💡 Durumu değerlendirip satış yapmayı düşünebilirsiniz."
-        
-        self.bot.mesaj_gonder_sync(mesaj)
-        print(f"� {len(uyarilar)} stop-loss uyarısı gönderildi!")
+    def uyari_yazdir(self, uyarilar):
+        """Stop-loss uyarisini yerel olarak yazdirir."""
+        print(f"{len(uyarilar)} stop-loss uyarisi tetiklendi.")
     
     def liste_goster(self):
         """Aktif kuralları gösterir"""

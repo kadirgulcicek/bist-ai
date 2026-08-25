@@ -4,7 +4,7 @@ echo ==========================================
 echo DEBUG MODU - %date% %time%
 echo ==========================================
 echo.
-py -3.14 gunluk_bildirim.py
+py -3.14 web_app.py
 echo.
 echo ==========================================
 echo PROGRAM BITTI - Yukaridaki ciktiyi kontrol edin

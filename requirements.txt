@@ -4,7 +4,6 @@ pandas
 numpy
 requests
 matplotlib
-python-telegram-bot
 openpyxl
 scikit-learn
 numpy
@@ -13,3 +12,5 @@ psycopg2-binary
 python-dotenv
 feedparser
 transformers
+newspaper3k
+lxml_html_clean

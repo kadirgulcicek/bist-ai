@@ -11,11 +11,10 @@ def menu():
         print("=" * 50)
         print("1. Portföy Yönetimi")
         print("2. İşlem Geçmişi")
-        print("3. Günlük Telegram Raporu")
-        print("4. Stop-Loss Kontrol")
-        print("5. Excel Raporu")
-        print("6. Grafikler")
-        print("7. Çıkış")
+        print("3. Stop-Loss Kontrol")
+        print("4. Excel Raporu")
+        print("5. Grafikler")
+        print("6. Çıkış")
         
         secim = input("\nSeçiminiz (1-7): ").strip()
         
@@ -24,14 +23,12 @@ def menu():
         elif secim == "2":
             os.system("py -3.14 islem_gecmisi.py")
         elif secim == "3":
-            os.system("py -3.14 gunluk_rapor.py")
-        elif secim == "4":
             os.system("py -3.14 stop_loss.py")
-        elif secim == "5":
+        elif secim == "4":
             os.system("py -3.14 excel_aktar.py")
-        elif secim == "6":
+        elif secim == "5":
             os.system("py -3.14 grafik_ciz.py")
-        elif secim == "7":
+        elif secim == "6":
             print("Görüşürüz!")
             break
 

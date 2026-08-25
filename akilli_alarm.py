@@ -1,26 +1,21 @@
 """
 Akıllı Alarm Sistemi
 Anlik firsat ve tehlike uyaran sistemi
-Telegram ile entegre
 """
 
 import yfinance as yf
 import time
 from datetime import datetime
 from collections import defaultdict
-from telegram_bot import BISTTelegramBot
 
 
 class AkilliAlarm:
-    def __init__(self, telegram_token=None, chat_id=None):
+    def __init__(self):
         self.gecmis_veriler = {}  # Hisse bazlı geçmiş fiyat verileri
         self.son_alarmlar = defaultdict(float)  # Spam önleme
         self.alarm_aralik = 300  # Aynı hisse için 5 dk aralık
         
-        if telegram_token and chat_id:
-            self.bot = BISTTelegramBot(telegram_token, chat_id)
-        else:
-            self.bot = None
+        self.bot = None
     
     def fiyat_al(self, sembol):
         """Tek bir hissenin güncel fiyatını alır"""
@@ -190,22 +185,10 @@ class AkilliAlarm:
         
         return tum_uyarilar
     
-    def telegram_bildir(self, uyarilar):
-        """Uyarilari Telegram'a gonderir"""
-        if not self.bot or not uyarilar:
-            return
-        
-        # Oncelik siralamasina gore
-        oncelik_sirasi = {"YUKSEK": 0, "ORTA": 1, "DUSUK": 2}
-        uyarilar.sort(key=lambda x: oncelik_sirasi.get(x["oncelik"], 3))
-        
-        mesaj = f"🚨 <b>ALARM SİSTEMİ</b>\n� {datetime.now().strftime('%H:%M:%S')}\n\n"
-        mesaj += f"{len(uyarilar)} uyari tespit edildi:\n\n"
-        
-        for uyari in uyarilar[:10]:  # En fazla 10 uyari
-            mesaj += f"• {uyari['mesaj']}\n"
-        
-        self.bot.mesaj_gonder_sync(mesaj)
+    def uyari_bildir(self, uyarilar):
+        """Uyarilari yerel olarak yazdirir."""
+        if uyarilar:
+            print(f"{len(uyarilar)} alarm tespit edildi.")
     
     def surekli_kontrol(self, hisse_listesi, aralik_dakika=5):
         """Belirli araliklarla surekli kontrol"""
@@ -218,7 +201,7 @@ class AkilliAlarm:
                 
                 if uyarilar:
                     print(f"[{datetime.now().strftime('%H:%M:%S')}] {len(uyarilar)} uyari bulundu!")
-                    self.telegram_bildir(uyarilar)
+                    self.uyari_bildir(uyarilar)
                 else:
                     print(f"[{datetime.now().strftime('%H:%M:%S')}] Tüm hisseler normal")
                 
@@ -256,7 +239,7 @@ if __name__ == "__main__":
     hisseler = ["THYAO", "GARAN", "ASELS", "TUPRS", "EREGL",
                 "KCHOL", "PETKM", "BIMAS", "SISE", "AKBNK"]
     
-    alarm = AkilliAlarm(TOKEN, CHAT_ID)
+    alarm = AkilliAlarm()
     
     if secim == "1":
         print("\nTek seferlik kontrol...")
@@ -266,7 +249,7 @@ if __name__ == "__main__":
             print(f"\n✅ {len(uyarilar)} uyari bulundu:")
             for uyari in uyarilar:
                 print(f"  [{uyari['oncelik']}] {uyari['mesaj']}")
-            alarm.telegram_bildir(uyarilar)
+            alarm.uyari_bildir(uyarilar)
         else:
             print("\nTüm hisseler normal, uyari yok.")
     

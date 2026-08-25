@@ -1,23 +1,20 @@
 """
 Fiyat Alarm Sistemi
-Belirli fiyat seviyelerine gelince Telegram'dan uyarı gönderir
+Belirli fiyat seviyelerine gelince yerel uyarı üretir
 """
 
 import json
 import os
 import yfinance as yf
 from datetime import datetime
-from telegram_bot import BISTTelegramBot
 
 
 class AlarmSistemi:
-    def __init__(self, telegram_token=None, chat_id=None):
+    def __init__(self):
         self.dosya = "alarmlar.json"
         self.alarmlar = self.yukle()
         self.bot = None
         
-        if telegram_token and chat_id:
-            self.bot = BISTTelegramBot(telegram_token, chat_id)
     
     def yukle(self):
         """Alarmları yükler"""
@@ -96,25 +93,14 @@ class AlarmSistemi:
         if tetiklenenler:
             self.kaydet()
             
-            # Telegram bildirimi gönder
-            if self.bot:
-                self.telegram_bildir(tetiklenenler)
+            self.alarm_bildir(tetiklenenler)
         
         return tetiklenenler
     
-    def telegram_bildir(self, alarmlar):
-        """Telegram'a alarm bildirimi gönderir"""
-        mesaj = "🚨 <b>FİYAT ALARM!</b>\n\n"
-        
-        for a in alarmlar:
-            yon_emoji = "📈" if a["yon"] == "yukari" else "📉"
-            mesaj += f"{yon_emoji} <b>{a['sembol']}</b>\n"
-            mesaj += f"   Hedef: {a['hedef']} TL\n"
-            mesaj += f"   Güncel: {a['fiyat']:.2f} TL\n\n"
-        
-        mesaj += f"⏰ {datetime.now().strftime('%H:%M')}"
-        
-        self.bot.mesaj_gonder_sync(mesaj)
+    def alarm_bildir(self, alarmlar):
+        """Alarmi yerel olarak yazdirir."""
+        if alarmlar:
+            print(f"{len(alarmlar)} fiyat alarmi tetiklendi.")
     
     def liste_goster(self):
         """Aktif alarmları gösterir"""

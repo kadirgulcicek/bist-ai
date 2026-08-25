@@ -34,27 +34,8 @@ def sistem_durumu():
 
 
 def manuel_rapor():
-    """Şimdi rapor gönder"""
-    print("\n  Manuel rapor gönderiliyor...")
-    
-    # Buraya kendi dosya yolunuzu yazın
-    dosya_yolu = os.path.dirname(os.path.abspath(__file__))
-    
-    try:
-        # gunluk_bildirim.py'den sadece rapor kısmını çalıştır
-        from gunluk_bildirim import GunlukBildirim
-        from telegram_bot import BISTTelegramBot
-        
-        # Aynı token ve chat ID (kendi bilgilerinizi yazın)
-        TOKEN = "BURAYA_TOKEN"
-        CHAT_ID = "BURAYA_CHAT_ID"
-        
-        bildirim = GunlukBildirim(TOKEN, CHAT_ID)
-        bildirim.sabah_raporu()
-        print("✅ Rapor gönderildi!")
-        
-    except Exception as e:
-        print(f"❌ Hata: {e}")
+    """Rapor sistemi kaldirildi."""
+    print("Harici mesaj raporu kaldirildi.")
 
 
 def log_goster():
