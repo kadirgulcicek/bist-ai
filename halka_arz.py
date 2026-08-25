@@ -63,11 +63,17 @@ def _kayit_olustur(baslik, ozet, link, kaynak):
     metin = f"{baslik} {ozet}"
     if not any(anahtar in metin.lower() for anahtar in ANAHTARLAR):
         return None
-    sembol = _alan_bul(metin, (r"(?:kod|borsa kodu)[: ]+([A-Z]{3,6})\b", r"\b([A-Z]{3,6})\.E\b", r"\(([A-Z]{3,6})\)\s+halka arz", r"\b([A-Z]{3,6})\s+halka arz"))
+    sembol = _alan_bul(metin, (r"(?:kod|borsa kodu)[: ]+([A-Z]{3,6})\b", r"\b([A-Z]{3,6})\.E\b", r"\(([A-Z]{3,6})\)\s+halka arz", r"\*{2,}\s*([A-Z]{3,6})(?:,[A-Z]{3,6})*\s*\*{2,}"))
+    sirket = _alan_bul(metin, (r"(?:şirket|firma)[: ]+([^,.;]+)", r"^([^:.;-]+?)\s+halka arz"))
+    if sirket == "Belirtilmedi":
+        baslik_sirket = re.split(r"\s+halka arz", baslik, maxsplit=1, flags=re.IGNORECASE)[0]
+        kap = re.match(r"^KAP\s+\*{2,}\s*(.*?)\s+\*{2,}\s+[A-Z,]+\s+\*{2,}", baslik_sirket, flags=re.IGNORECASE)
+        sirket = kap.group(1) if kap else re.sub(r"^KAP\s+\*{2,}.*?\*{2,}\s*", "", baslik_sirket, flags=re.IGNORECASE).strip(" -:") or "Belirtilmedi"
+    sirket = re.sub(r"\s*\*{2,}.*$", "", sirket).strip(" -:") or "Belirtilmedi"
     arz_tarihi = _tarih_bul(metin)
     return {
         "id": link or baslik,
-        "sirket": _alan_bul(metin, (r"(?:şirket|firma)[: ]+([^,.;]+)",)),
+        "sirket": sirket,
         "sembol": sembol,
         "baslik": baslik,
         "link": link,
@@ -85,7 +91,8 @@ def _kayit_olustur(baslik, ozet, link, kaynak):
 
 def _sembol_temizle(sembol):
     sembol = str(sembol or "").upper().replace(".E", "")
-    return sembol if re.fullmatch(r"[A-Z]{3,6}", sembol) and sembol not in {"HALKA", "TALEP", "BORSA"} else ""
+    yasakli = {"HALKA", "TALEP", "BORSA", "YENI", "HISSE", "GYO", "SANAYI", "BANK", "GIDA", "ENERJI", "PIYASA", "DAHA", "NEDIR", "SAAT", "NIN", "BETON", "YAPI", "DEVI", "TURIZM", "LIK"}
+    return sembol if re.fullmatch(r"[A-Z]{3,6}", sembol) and sembol not in yasakli else ""
 
 
 def _fiyat_degisimini_ekle(veri):
@@ -164,7 +171,7 @@ def halka_arzlari_guncelle():
 
 def halka_arz_ozeti():
     veriler = halka_arzlari_guncelle()
-    son_alti = veriler[:6]
+    son_alti = [veri for veri in veriler if _sembol_temizle(veri.get("sembol"))][:6]
     return {
         "tum": son_alti,
         "son_alti": son_alti,
