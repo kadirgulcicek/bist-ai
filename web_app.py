@@ -586,6 +586,7 @@ th{background:#0f3460}
 form{margin:15px 0;background:#16213e;padding:15px;border-radius:8px}
 input{width:100%;padding:10px;margin:5px 0;border:none;border-radius:5px;background:#0f3460;color:white;box-sizing:border-box}
 .btn{display:inline-block;padding:10px 20px;background:#e94560;color:white;border:none;border-radius:5px;cursor:pointer;text-decoration:none}
+.portfolio-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:24px}
 </style></head>
 <body>
 <div class="container">
@@ -642,12 +643,13 @@ input{width:100%;padding:10px;margin:5px 0;border:none;border-radius:5px;backgro
 <input name="fiyat" type="number" step="0.01" min="0.01" placeholder="Satis Fiyati" required>
 <button class="btn" type="submit">Sat</button>
 </form>
-<h2 style="margin-top:30px;color:#f44336">Tehlikeli Bolge</h2>
+<div class="portfolio-actions">
 <a class="btn" href="/islemler">İşlem Geçmişi</a>
 <a class="btn" href="/portfoy.csv">CSV İndir</a>
 <a class="btn" href="/portfoy.xlsx">Excel İndir</a>
 <a class="btn" href="/performans">Performans</a>
 <a class="btn" href="/temizle" style="background:#f44336" onclick="return confirm('Tum portfoy silinecek! Emin misiniz?')">Portfoyu Temizle</a>
+</div>
 </div></body></html>
 """
 
