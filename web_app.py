@@ -163,6 +163,11 @@ def cacheli_gecmis(ticker, period="1y", auto_adjust=False):
 kullanici_yoneticisi = KullaniciYoneticisi()
 
 
+@app.route("/health")
+def health():
+    return {"status": "ok"}, 200
+
+
 def aktif_kullanici_al():
     token = request.cookies.get("session_token")
     if token:
