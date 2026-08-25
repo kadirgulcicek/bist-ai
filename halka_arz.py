@@ -3,6 +3,7 @@
 import json
 import os
 import re
+import calendar
 from datetime import datetime, timedelta
 
 import feedparser
@@ -11,9 +12,11 @@ import yfinance as yf
 DOSYA = "halka_arz_takip.json"
 KAYNAKLAR = {
     "KAP": "https://www.kap.org.tr/tr/rss/bildirim",
-    "Google News": "https://news.google.com/rss/search?q=halka%20arz%20BIST&hl=tr&gl=TR&ceid=TR:tr",
+    "Google News - Halka Arz": "https://news.google.com/rss/search?q=halka%20arz%20BIST&hl=tr&gl=TR&ceid=TR:tr",
+    "Google News - Talep Toplama": "https://news.google.com/rss/search?q=talep%20toplama%20Borsa%20Istanbul&hl=tr&gl=TR&ceid=TR:tr",
+    "Google News - Yeni Hisse": "https://news.google.com/rss/search?q=yeni%20hisse%20borsada%20islem%20gorecek&hl=tr&gl=TR&ceid=TR:tr",
 }
-ANAHTARLAR = ("halka arz", "talep toplama", "borsada işlem", "işlem görmeye", "ilk işlem")
+ANAHTARLAR = ("halka arz", "halka arzı", "talep toplama", "talep toplama tarih", "borsada işlem", "işlem görmeye", "ilk işlem", "işlem görmeye başlayacak")
 
 
 def _yukle():
@@ -30,6 +33,13 @@ def _kaydet(veriler):
 
 
 def _tarih_bul(metin):
+    aylar = {"ocak": 1, "şubat": 2, "mart": 3, "nisan": 4, "mayıs": 5, "haziran": 6, "temmuz": 7, "ağustos": 8, "eylül": 9, "ekim": 10, "kasım": 11, "aralık": 12}
+    turkce = re.search(r"(\d{1,2})\s+([a-zçğıöşü]+)\s+(20\d{2})", metin.lower())
+    if turkce and turkce.group(2) in aylar:
+        try:
+            return datetime(int(turkce.group(3)), aylar[turkce.group(2)], int(turkce.group(1))).date()
+        except ValueError:
+            return None
     eslesme = re.search(r"(20\d{2})[./-](\d{1,2})[./-](\d{1,2})|(?<!\d)(\d{1,2})[./-](\d{1,2})[./-](20\d{2})", metin)
     if not eslesme:
         return None
@@ -53,7 +63,7 @@ def _kayit_olustur(baslik, ozet, link, kaynak):
     metin = f"{baslik} {ozet}"
     if not any(anahtar in metin.lower() for anahtar in ANAHTARLAR):
         return None
-    sembol = _alan_bul(metin, (r"(?:kod[: ]+)([A-Z]{3,6})\b", r"\b([A-Z]{3,6})\.E\b", r"\b([A-Z]{3,6})\s+halka arz"))
+    sembol = _alan_bul(metin, (r"(?:kod|borsa kodu)[: ]+([A-Z]{3,6})\b", r"\b([A-Z]{3,6})\.E\b", r"\(([A-Z]{3,6})\)\s+halka arz", r"\b([A-Z]{3,6})\s+halka arz"))
     arz_tarihi = _tarih_bul(metin)
     return {
         "id": link or baslik,
@@ -110,9 +120,12 @@ def _kaynaklari_oku():
     for kaynak, url in KAYNAKLAR.items():
         try:
             akis = feedparser.parse(url)
-            for kayit in akis.entries[:30]:
+            for kayit in akis.entries[:50]:
                 haber = _kayit_olustur(kayit.get("title", ""), kayit.get("summary", ""), kayit.get("link", ""), kaynak)
                 if haber:
+                    yayin_tarihi = kayit.get("published_parsed") or kayit.get("updated_parsed")
+                    if yayin_tarihi:
+                        haber["duyuru_tarihi"] = datetime.fromtimestamp(calendar.timegm(yayin_tarihi)).date().isoformat()
                     haberler.append(haber)
         except Exception:
             continue
@@ -122,9 +135,15 @@ def _kaynaklari_oku():
 def halka_arzlari_guncelle():
     veriler = _yukle()
     for yeni in _kaynaklari_oku():
-        eski = veriler.get(yeni["id"], {})
+        eslesme_id = yeni["id"]
+        if yeni.get("sembol") and yeni["sembol"] != "Belirtilmedi":
+            for mevcut_id, mevcut in veriler.items():
+                if mevcut.get("sembol") == yeni["sembol"]:
+                    eslesme_id = mevcut_id
+                    break
+        eski = veriler.get(eslesme_id, {})
         yeni.update({k: eski.get(k) for k in ("takip_baslangic", "takip_bitis", "durum") if eski.get(k)})
-        veriler[yeni["id"]] = yeni
+        veriler[eslesme_id] = yeni
     bugun = datetime.now().date()
     for veri in veriler.values():
         tarih = _tarih_bul(f"{veri.get('talep_tarihi', '')} {veri.get('duyuru_tarihi', '')}")
