@@ -571,8 +571,10 @@ HTML_PORTFOY = """
 <style>
 body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 .container{max-width:800px;margin:auto}
-.header{text-align:center;padding:20px;background:linear-gradient(135deg,#16213e,#0f3460);border-radius:10px;margin-bottom:15px}
-.header h1{margin:0;color:#e94560;font-size:22px}
+.header{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 16px;background:linear-gradient(135deg,#16213e,#0f3460);border-radius:8px;margin-bottom:15px;position:sticky;top:10px;z-index:10}
+.header h1{margin:0;color:#e94560;font-size:20px}
+.header p{margin:0;color:#dfeaff;font-size:12px;text-align:right;white-space:nowrap}
+.header small{display:block;color:#b0bec5;font-size:10px;margin-top:3px;letter-spacing:.08em}
 .menu{display:flex;gap:8px;margin:15px 0;flex-wrap:wrap}
 .menu a{flex:1;min-width:80px;padding:8px;background:#0f3460;color:white;text-decoration:none;border-radius:5px;text-align:center;font-size:13px}
 .menu a.active{background:#e94560}
@@ -590,7 +592,7 @@ input{width:100%;padding:10px;margin:5px 0;border:none;border-radius:5px;backgro
 </style></head>
 <body>
 <div class="container">
-<div class="header"><h1>BIST AI Portfoy</h1><p>{{ tarih }}</p></div>
+<div class="header"><div><h1>BIST AI</h1><small>SİZİN İÇİN ÇALIŞIYORUZ</small></div><p>{{ tarih }}</p></div>
 <div class="menu">
 <a href="/" class="active">Portfoy</a><a href="/panel">Panel</a><a href="/sektor">Sektor</a>
 <a href="/risk">Risk</a><a href="/ai">AI</a><a href="/sinyal">Sinyal</a>
@@ -660,8 +662,10 @@ HTML_SEKTOR = """
 <style>
 body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 .container{max-width:800px;margin:auto}
-.header{text-align:center;padding:20px;background:linear-gradient(135deg,#16213e,#0f3460);border-radius:10px;margin-bottom:15px}
-.header h1{margin:0;color:#e94560;font-size:22px}
+.header{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 16px;background:linear-gradient(135deg,#16213e,#0f3460);border-radius:8px;margin-bottom:15px;position:sticky;top:10px;z-index:10}
+.header h1{margin:0;color:#e94560;font-size:20px}
+.header p{margin:0;color:#dfeaff;font-size:12px;text-align:right;white-space:nowrap}
+.header small{display:block;color:#b0bec5;font-size:10px;margin-top:3px;letter-spacing:.08em}
 .menu{display:flex;gap:8px;margin:15px 0;flex-wrap:wrap}
 .menu a{flex:1;min-width:80px;padding:8px;background:#0f3460;color:white;text-decoration:none;border-radius:5px;text-align:center;font-size:13px}
 .menu a.active{background:#e94560}
@@ -673,7 +677,7 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 </style></head>
 <body>
 <div class="container">
-<div class="header"><h1>Sektor Analizi</h1><p>{{ tarih }}</p></div>
+<div class="header"><div><h1>BIST AI</h1><small>SİZİN İÇİN ÇALIŞIYORUZ</small></div><p>{{ tarih }}</p></div>
 <div class="menu">
 <a href="/">Portfoy</a><a href="/panel">Panel</a><a href="/sektor" class="active">Sektor</a>
 <a href="/risk">Risk</a><a href="/ai">AI</a><a href="/sinyal">Sinyal</a>
@@ -701,8 +705,10 @@ HTML_RISK = """
 <style>
 body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 .container{max-width:900px;margin:auto}
-.header{text-align:center;padding:22px 18px;background:linear-gradient(135deg,#16213e,#0f3460);border-radius:12px;margin-bottom:16px;box-shadow:0 12px 28px rgba(0,0,0,.22)}
-.header h1{margin:0;color:#e94560;font-size:24px}
+.header{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 16px;background:linear-gradient(135deg,#16213e,#0f3460);border-radius:8px;margin-bottom:15px;position:sticky;top:10px;z-index:10}
+.header h1{margin:0;color:#e94560;font-size:20px}
+.header p{margin:0;color:#cfe2ff;font-size:12px;text-align:right;white-space:nowrap}
+.header small{display:block;color:#b0bec5;font-size:10px;margin-top:3px;letter-spacing:.08em}
 .header p{margin:8px 0 0;color:#cfe2ff;font-size:13px}
 .menu{display:flex;gap:8px;margin:15px 0;flex-wrap:wrap}
 .menu a{flex:1;min-width:80px;padding:9px;background:#0f3460;color:white;text-decoration:none;border-radius:7px;text-align:center;font-size:12px;font-weight:600}
@@ -751,7 +757,7 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 </style></head>
 <body>
 <div class="container">
-<div class="header"><h1>Risk Analizi</h1><p>{{ tarih }}</p></div>
+<div class="header"><div><h1>BIST AI</h1><small>SİZİN İÇİN ÇALIŞIYORUZ</small></div><p>{{ tarih }}</p></div>
 <div class="menu">
 <a href="/">Portfoy</a><a href="/panel">Panel</a><a href="/sektor">Sektor</a>
 <a href="/risk" class="active">Risk</a><a href="/ai">AI</a><a href="/sinyal">Sinyal</a>
@@ -857,8 +863,10 @@ HTML_AI = """
 <style>
 body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 .container{max-width:800px;margin:auto}
-.header{text-align:center;padding:20px;background:linear-gradient(135deg,#16213e,#0f3460);border-radius:10px;margin-bottom:15px}
-.header h1{margin:0;color:#e94560;font-size:22px}
+.header{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 16px;background:linear-gradient(135deg,#16213e,#0f3460);border-radius:8px;margin-bottom:15px;position:sticky;top:10px;z-index:10}
+.header h1{margin:0;color:#e94560;font-size:20px}
+.header p{margin:0;color:#dfeaff;font-size:12px;text-align:right;white-space:nowrap}
+.header small{display:block;color:#b0bec5;font-size:10px;margin-top:3px;letter-spacing:.08em}
 .menu{display:flex;gap:8px;margin:15px 0;flex-wrap:wrap}
 .menu a{flex:1;min-width:80px;padding:8px;background:#0f3460;color:white;text-decoration:none;border-radius:5px;text-align:center;font-size:13px}
 .menu a.active{background:#e94560}
@@ -877,7 +885,7 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 </style></head>
 <body>
 <div class="container">
-<div class="header"><h1>AI Tahmin Sistemi</h1><p>{{ tarih }}</p></div>
+<div class="header"><div><h1>BIST AI</h1><small>SİZİN İÇİN ÇALIŞIYORUZ</small></div><p>{{ tarih }}</p></div>
 <div class="menu">
 <a href="/">Portfoy</a><a href="/panel">Panel</a><a href="/sektor">Sektor</a>
 <a href="/risk">Risk</a><a href="/ai" class="active">AI</a><a href="/sinyal">Sinyal</a>
@@ -928,8 +936,10 @@ HTML_SINYAL = """
 <style>
 body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 .container{max-width:800px;margin:auto}
-.header{text-align:center;padding:20px;background:linear-gradient(135deg,#16213e,#0f3460);border-radius:10px;margin-bottom:15px}
-.header h1{margin:0;color:#e94560;font-size:22px}
+.header{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 16px;background:linear-gradient(135deg,#16213e,#0f3460);border-radius:8px;margin-bottom:15px;position:sticky;top:10px;z-index:10}
+.header h1{margin:0;color:#e94560;font-size:20px}
+.header p{margin:0;color:#dfeaff;font-size:12px;text-align:right;white-space:nowrap}
+.header small{display:block;color:#b0bec5;font-size:10px;margin-top:3px;letter-spacing:.08em}
 .menu{display:flex;gap:8px;margin:15px 0;flex-wrap:wrap}
 .menu a{flex:1;min-width:70px;padding:8px;background:#0f3460;color:white;text-decoration:none;border-radius:5px;text-align:center;font-size:13px}
 .menu a.active{background:#e94560}
@@ -949,7 +959,7 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 </style></head>
 <body>
 <div class="container">
-<div class="header"><h1>Al-Sat Sinyalleri</h1><p>{{ tarih }} | {{ toplam_sinyal }} aktif</p></div>
+<div class="header"><div><h1>BIST AI</h1><small>SİZİN İÇİN ÇALIŞIYORUZ</small></div><p>{{ tarih }} | {{ toplam_sinyal }} aktif</p></div>
 <div class="menu">
 <a href="/">Portfoy</a><a href="/panel">Panel</a><a href="/sektor">Sektor</a>
 <a href="/risk">Risk</a><a href="/ai">AI</a><a href="/sinyal" class="active">Sinyal</a>
@@ -986,8 +996,10 @@ HTML_PANEL = """
 <style>
 body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 .container{max-width:900px;margin:auto}
-.header{text-align:center;padding:20px;background:linear-gradient(135deg,#16213e,#0f3460);border-radius:10px;margin-bottom:15px}
-.header h1{margin:0;color:#e94560;font-size:22px}
+.header{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 16px;background:linear-gradient(135deg,#16213e,#0f3460);border-radius:8px;margin-bottom:15px;position:sticky;top:10px;z-index:10}
+.header h1{margin:0;color:#e94560;font-size:20px}
+.header p{margin:0;color:#dfeaff;font-size:12px;text-align:right;white-space:nowrap}
+.header small{display:block;color:#b0bec5;font-size:10px;margin-top:3px;letter-spacing:.08em}
 .menu{display:flex;gap:8px;margin:15px 0;flex-wrap:wrap}
 .menu a{flex:1;min-width:70px;padding:8px;background:#0f3460;color:white;text-decoration:none;border-radius:5px;text-align:center;font-size:13px}
 .menu a.active{background:#e94560}
@@ -1004,7 +1016,7 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 </style></head>
 <body>
 <div class="container">
-<div class="header"><h1>BIST AI - Mega Panel</h1><p>{{ tarih }}</p></div>
+<div class="header"><div><h1>BIST AI</h1><small>SİZİN İÇİN ÇALIŞIYORUZ</small></div><p>{{ tarih }}</p></div>
 <div class="menu">
 <a href="/">Portfoy</a><a href="/panel" class="active">Panel</a><a href="/sektor">Sektor</a>
 <a href="/risk">Risk</a><a href="/ai">AI</a><a href="/sinyal">Sinyal</a>
@@ -1054,8 +1066,10 @@ HTML_CANLI = """
 <style>
 body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 .container{max-width:800px;margin:auto}
-.header{text-align:center;padding:20px;background:linear-gradient(135deg,#16213e,#0f3460);border-radius:10px;margin-bottom:15px}
-.header h1{margin:0;color:#e94560;font-size:22px}
+.header{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 16px;background:linear-gradient(135deg,#16213e,#0f3460);border-radius:8px;margin-bottom:15px;position:sticky;top:10px;z-index:10}
+.header h1{margin:0;color:#e94560;font-size:20px}
+.header p{margin:0;color:#dfeaff;font-size:12px;text-align:right;white-space:nowrap}
+.header small{display:block;color:#b0bec5;font-size:10px;margin-top:3px;letter-spacing:.08em}
 .menu{display:flex;gap:8px;margin:15px 0;flex-wrap:wrap}
 .menu a{flex:1;min-width:70px;padding:8px;background:#0f3460;color:white;text-decoration:none;border-radius:5px;text-align:center;font-size:13px}
 .menu a.active{background:#e94560}.menu a.cikis{background:#f44336}
@@ -1070,7 +1084,7 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 </style></head>
 <body>
 <div class="container">
-<div class="header"><h1>Canli Takip</h1><p>{{ tarih }}</p></div>
+<div class="header"><div><h1>BIST AI</h1><small>SİZİN İÇİN ÇALIŞIYORUZ</small></div><p>{{ tarih }}</p></div>
 <div class="menu">
 <a href="/">Portfoy</a><a href="/panel">Panel</a><a href="/sektor">Sektor</a>
 <a href="/risk">Risk</a><a href="/ai">AI</a><a href="/sinyal">Sinyal</a>
@@ -1100,8 +1114,10 @@ HTML_HEDEF = """
 <style>
 body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 .container{max-width:800px;margin:auto}
-.header{text-align:center;padding:20px;background:linear-gradient(135deg,#16213e,#0f3460);border-radius:10px;margin-bottom:15px}
-.header h1{margin:0;color:#e94560;font-size:22px}
+.header{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 16px;background:linear-gradient(135deg,#16213e,#0f3460);border-radius:8px;margin-bottom:15px;position:sticky;top:10px;z-index:10}
+.header h1{margin:0;color:#e94560;font-size:20px}
+.header p{margin:0;color:#dfeaff;font-size:12px;text-align:right;white-space:nowrap}
+.header small{display:block;color:#b0bec5;font-size:10px;margin-top:3px;letter-spacing:.08em}
 .menu{display:flex;gap:8px;margin:15px 0;flex-wrap:wrap}
 .menu a{flex:1;min-width:70px;padding:8px;background:#0f3460;color:white;text-decoration:none;border-radius:5px;text-align:center;font-size:13px}
 .menu a.active{background:#e94560}.menu a.cikis{background:#f44336}
@@ -1132,7 +1148,7 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 </style></head>
 <body>
 <div class="container">
-<div class="header"><h1>Hedef Fiyat Tahmini</h1><p>{{ tarih }}</p></div>
+<div class="header"><div><h1>BIST AI</h1><small>SİZİN İÇİN ÇALIŞIYORUZ</small></div><p>{{ tarih }}</p></div>
 <div class="menu">
 <a href="/">Portfoy</a><a href="/panel">Panel</a><a href="/sektor">Sektor</a>
 <a href="/risk">Risk</a><a href="/ai">AI</a><a href="/sinyal">Sinyal</a>
@@ -1191,8 +1207,10 @@ HTML_BILDIRIM = """
 <style>
 body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 .container{max-width:800px;margin:auto}
-.header{text-align:center;padding:20px;background:linear-gradient(135deg,#16213e,#0f3460);border-radius:10px;margin-bottom:15px}
-.header h1{margin:0;color:#e94560;font-size:22px}
+.header{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 16px;background:linear-gradient(135deg,#16213e,#0f3460);border-radius:8px;margin-bottom:15px;position:sticky;top:10px;z-index:10}
+.header h1{margin:0;color:#e94560;font-size:20px}
+.header p{margin:0;color:#dfeaff;font-size:12px;text-align:right;white-space:nowrap}
+.header small{display:block;color:#b0bec5;font-size:10px;margin-top:3px;letter-spacing:.08em}
 .menu{display:flex;gap:8px;margin:15px 0;flex-wrap:wrap}
 .menu a{flex:1;min-width:70px;padding:8px;background:#0f3460;color:white;text-decoration:none;border-radius:5px;text-align:center;font-size:13px}
 .menu a.active{background:#e94560}.menu a.cikis{background:#f44336}
@@ -1211,7 +1229,7 @@ select{background:#0f3460;color:white;border:none;padding:8px 12px;border-radius
 </style></head>
 <body>
 <div class="container">
-<div class="header"><h1>Bildirim Ayarlari</h1><p>{{ tarih }}</p></div>
+<div class="header"><div><h1>BIST AI</h1><small>SİZİN İÇİN ÇALIŞIYORUZ</small></div><p>{{ tarih }}</p></div>
 <div class="menu">
 <a href="/">Portfoy</a><a href="/panel">Panel</a><a href="/sektor">Sektor</a>
 <a href="/risk">Risk</a><a href="/ai">AI</a><a href="/sinyal">Sinyal</a>
