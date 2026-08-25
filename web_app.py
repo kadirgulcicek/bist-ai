@@ -144,6 +144,69 @@ def tek_hisse_teknik_risk_hesapla(sembol):
         return None
 
 
+def basit_ai_tahmini(sembol, gun_sayisi=5):
+    """Model verisi yoksa son fiyat trendiyle tahmin üretir."""
+    try:
+        veri = yf.Ticker(f"{sembol}.IS").history(period="3mo", auto_adjust=False)
+        fiyatlar = veri["Close"].dropna().astype(float) if veri is not None and "Close" in veri else None
+        if fiyatlar is None or len(fiyatlar) < 5:
+            return None
+        son_fiyat = float(fiyatlar.iloc[-1])
+        gunluk_getiri = float(fiyatlar.pct_change().dropna().tail(20).mean())
+        gunluk_getiri = max(-0.05, min(0.05, gunluk_getiri))
+        return [son_fiyat * ((1 + gunluk_getiri) ** gun) for gun in range(gun_sayisi)]
+    except Exception:
+        return None
+
+
+def yarin_hisse_tahmini(sembol):
+    """Son fiyat hareketlerinden yarinin yon tahminini uretir."""
+    try:
+        veri = yf.Ticker(f"{sembol}.IS").history(period="6mo", auto_adjust=False)
+        if veri is None or "Close" not in veri.columns:
+            return None
+        fiyatlar = veri["Close"].dropna().astype(float)
+        if len(fiyatlar) < 30:
+            return None
+
+        getiriler = fiyatlar.pct_change().dropna()
+        son_fiyat = float(fiyatlar.iloc[-1])
+        bugun_getiri = float(getiriler.iloc[-1]) * 100
+        momentum_5 = float(getiriler.tail(5).mean())
+        momentum_20 = float(getiriler.tail(20).mean())
+        ema5 = float(fiyatlar.ewm(span=5, adjust=False).mean().iloc[-1])
+        ema20 = float(fiyatlar.ewm(span=20, adjust=False).mean().iloc[-1])
+        delta = fiyatlar.diff()
+        kazanc = delta.clip(lower=0).rolling(14).mean()
+        kayip = -delta.clip(upper=0).rolling(14).mean()
+        rs = kazanc / kayip.replace(0, np.nan)
+        rsi = float((100 - (100 / (1 + rs))).fillna(50).iloc[-1])
+
+        trend = (ema5 / ema20 - 1) * 100
+        beklenen_getiri = (momentum_5 * 0.45 + momentum_20 * 0.35 + trend / 100 * 0.20) * 100
+        if rsi > 70:
+            beklenen_getiri -= 0.8
+        elif rsi < 30:
+            beklenen_getiri += 0.8
+        beklenen_getiri = max(-5.0, min(5.0, beklenen_getiri))
+        puan = max(0.0, min(100.0, 50 + beklenen_getiri * 8 + trend * 4))
+        yarin_fiyat = son_fiyat * (1 + beklenen_getiri / 100)
+
+        return {
+            "sembol": sembol,
+            "bugun": round(son_fiyat, 2),
+            "bugun_getiri": round(bugun_getiri, 2),
+            "yarin": round(yarin_fiyat, 2),
+            "beklenen_getiri": round(beklenen_getiri, 2),
+            "puan": round(puan, 1),
+            "rsi": round(rsi, 1),
+            "trend": round(trend, 2),
+            "bugun_yukseliyor": bugun_getiri > 0,
+        }
+    except Exception:
+        return None
+
+
 def portfoy_veri_hazirla_icin(hisseler_listesi):
     hisseler = []
     toplam_maliyet = 0
@@ -545,6 +608,11 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 .tahmin-card .degisim{font-size:20px;font-weight:bold}
 .yukari{color:#4caf50}.asagi{color:#f44336}
 .uyari{background:#0f3460;padding:10px;border-radius:5px;margin:10px 0;font-size:13px}
+.yarin-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:15px 0}
+.yarin-card{background:#16213e;padding:14px;border-radius:8px;border-left:4px solid #4caf50}
+.yarin-card .baslik{display:flex;justify-content:space-between;font-weight:bold}
+.yarin-card .detay{color:#b0bec5;font-size:12px;margin-top:7px;line-height:1.6}
+@media(max-width:600px){.yarin-grid{grid-template-columns:1fr}}
 </style></head>
 <body>
 <div class="container">
@@ -556,8 +624,27 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 </div>
 <div class="info-box">
 <h3>Ensemble AI Model</h3>
-<p>Random Forest + Gradient Boosting + Neural Network</p>
+<p>Yarının yönünü; momentum, EMA trendi ve RSI ile tahmin eder.</p>
 </div>
+{% if yarin_tahminleri %}
+<h2>Yarın Yükselme İhtimali En Yüksek Hisseler</h2>
+<div class="yarin-grid">
+{% for t in yarin_tahminleri %}
+<div class="yarin-card">
+<div class="baslik"><span>{{ t.sembol }}</span><span class="{{ t.renk }}">{{ t.beklenen_yazi }}%</span></div>
+<div class="detay">Bugün: {{ t.bugun }} TL → Yarın: {{ t.yarin }} TL<br>Olasılık skoru: {{ t.puan }}/100 | RSI: {{ t.rsi }} | Trend: {{ t.trend }}%</div>
+</div>
+{% endfor %}
+</div>
+{% endif %}
+{% if bugun_yukselenler %}
+<h2>Bugün Yükselen Hisselerin Yarın Tahmini</h2>
+<div class="yarin-grid">
+{% for t in bugun_yukselenler %}
+<div class="yarin-card"><div class="baslik"><span>{{ t.sembol }}</span><span class="{{ t.renk }}">{{ t.beklenen_yazi }}%</span></div><div class="detay">Bugünkü değişim: +{{ t.bugun_getiri }}%<br>Yarın beklenen fiyat: {{ t.yarin }} TL</div></div>
+{% endfor %}
+</div>
+{% endif %}
 {% if sonuclar %}
 <h2>5 Gunluk Tahminler</h2>
 {% for t in sonuclar %}
@@ -567,6 +654,8 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 </div>
 {% endfor %}
 <div class="uyari">NOT: AI tahminleri yatirim tavsiyesi degildir.</div>
+{% else %}
+<div class="uyari">Tahmin üretilemedi. Piyasa verisi bağlantısını ve sembol listesini kontrol edin.</div>
 {% endif %}
 </div></body></html>
 """
@@ -1070,11 +1159,22 @@ def risk():
 def ai_tahmin_sayfasi():
     try:
         hisseler = ["THYAO", "GARAN", "ASELS", "TUPRS", "EREGL"]
+        yarin_tahminleri = []
+        for sembol in hisseler:
+            tahmin = yarin_hisse_tahmini(sembol)
+            if tahmin:
+                tahmin["renk"] = "yukari" if tahmin["beklenen_getiri"] >= 0 else "asagi"
+                tahmin["beklenen_yazi"] = f"{tahmin['beklenen_getiri']:+.2f}"
+                yarin_tahminleri.append(tahmin)
+        yarin_tahminleri.sort(key=lambda x: x["puan"], reverse=True)
+        bugun_yukselenler = [t for t in yarin_tahminleri if t["bugun_yukseliyor"]]
+
         ensemble = EnsembleTahminci(look_back=30)
-        ensemble.model_egit(hisseler[0])
+        model_hazir = ensemble.model_egit(hisseler[0]) is not None
         sonuclar = []
         for sembol in hisseler:
-            tahminler = ensemble.gelecek_tahmin(sembol, gun_sayisi=5)
+            tahminler = ensemble.gelecek_tahmin(sembol, gun_sayisi=5) if model_hazir else None
+            tahminler = tahminler or basit_ai_tahmini(sembol, gun_sayisi=5)
             if tahminler and len(tahminler) >= 2:
                 bugun = round(tahminler[0], 2)
                 hedef = round(tahminler[-1], 2)
@@ -1085,9 +1185,17 @@ def ai_tahmin_sayfasi():
                     "degisim": f"{degisim:+.2f}", "renk": renk,
                 })
         sonuclar.sort(key=lambda x: float(x["degisim"]), reverse=True)
-        return render_template_string(HTML_AI, sonuclar=sonuclar)
+        return render_template_string(
+            HTML_AI,
+            sonuclar=sonuclar,
+            yarin_tahminleri=yarin_tahminleri,
+            bugun_yukselenler=bugun_yukselenler,
+        )
     except Exception as e:
-        return render_template_string(HTML_AI, sonuclar=[])
+        return render_template_string(
+            HTML_AI,
+            sonuclar=[], yarin_tahminleri=[], bugun_yukselenler=[]
+        )
 
 
 @app.route("/sinyal")
