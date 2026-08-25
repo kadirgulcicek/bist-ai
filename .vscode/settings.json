@@ -8,5 +8,23 @@
         "*test.py"
     ],
     "python.testing.pytestEnabled": false,
-    "python.testing.unittestEnabled": true
+    "python.testing.unittestEnabled": true,
+    "chat.tools.terminal.autoApprove": {
+        "/^python -m pip install python-dotenv feedparser transformers$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^python -c \"\nimport dotenv, feedparser, transformers\nprint\\('python-dotenv:', dotenv\\.__version__\\)\nprint\\('feedparser:', feedparser\\.__version__\\)\nprint\\('transformers:', transformers\\.__version__\\)\n\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^python -c \"\nimport dotenv, feedparser, transformers\nprint\\('Imports successful!'\\)\n\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^python -m compileall -l \\.$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
 }
