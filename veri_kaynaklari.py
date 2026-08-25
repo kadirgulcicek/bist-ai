@@ -5,13 +5,16 @@ Hata durumunda alternatif kaynaga gecer
 """
 
 import requests
+import csv
+from io import StringIO
+import os
 from datetime import datetime
 import random
 
 
 class VeriKaynaklari:
     def __init__(self):
-        self.kaynaklar = ["yahoo", "isyatirim", "mynet", "bigpara"]
+        self.kaynaklar = ["yahoo", "stooq", "twelve_data"]
     
     def yahoo_veri(self, sembol):
         """Yahoo Finance'den veri ceker"""
@@ -72,6 +75,43 @@ class VeriKaynaklari:
             return None
         except:
             return None
+
+    def stooq_veri(self, sembol):
+        """Stooq uzerinden ucretsiz gecikmeli gunluk veri ceker."""
+        try:
+            url = f"https://stooq.com/q/d/l/?s={sembol.lower()}.tr&i=d"
+            response = requests.get(url, timeout=8)
+            satirlar = list(csv.DictReader(StringIO(response.text)))
+            if len(satirlar) < 2:
+                return None
+            son = float(satirlar[-1]["Close"])
+            onceki = float(satirlar[-2]["Close"])
+            if son <= 0 or onceki <= 0:
+                return None
+            return {"sembol": sembol, "fiyat": son, "gunluk": (son / onceki - 1) * 100, "kaynak": "Stooq"}
+        except (KeyError, ValueError, requests.RequestException):
+            return None
+
+    def twelve_data_veri(self, sembol):
+        """Twelve Data ucretsiz kotasi varsa gunluk veri ceker."""
+        api_anahtari = os.environ.get("TWELVE_DATA_API_KEY")
+        if not api_anahtari:
+            return None
+        try:
+            response = requests.get(
+                "https://api.twelvedata.com/time_series",
+                params={"symbol": f"{sembol}:BIST", "interval": "1day", "outputsize": 2, "apikey": api_anahtari},
+                timeout=8,
+            )
+            veriler = response.json().get("values", [])
+            if len(veriler) < 2:
+                return None
+            son, onceki = float(veriler[0]["close"]), float(veriler[1]["close"])
+            return {"sembol": sembol, "fiyat": son, "gunluk": (son / onceki - 1) * 100, "kaynak": "Twelve Data"}
+        except (KeyError, TypeError, ValueError, requests.RequestException):
+            return None
+        except:
+            return None
     
     def bigpara_veri(self, sembol):
         """BigPara'dan veri ceker"""
@@ -94,18 +134,13 @@ class VeriKaynaklari:
         if veri:
             return veri
         
-        # 2. IsYatirim'i dene
-        veri = self.isyatirim_veri(sembol)
+        # 2. Stooq ucretsiz gecikmeli veriyi dene
+        veri = self.stooq_veri(sembol)
         if veri:
             return veri
         
-        # 3. Mynet'i dene
-        veri = self.mynet_veri(sembol)
-        if veri:
-            return veri
-        
-        # 4. BigPara'yi dene
-        veri = self.bigpara_veri(sembol)
+        # 3. Twelve Data ucretsiz kotayi dene
+        veri = self.twelve_data_veri(sembol)
         if veri:
             return veri
         

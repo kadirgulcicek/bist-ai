@@ -76,6 +76,15 @@ def guvenli_veri_al(sembol):
     veri = yahoo_veri_al(sembol)
     if veri:
         return veri
+    try:
+        from veri_kaynaklari import VeriKaynaklari
+        alternatif = VeriKaynaklari()
+        for kaynak in (alternatif.stooq_veri, alternatif.twelve_data_veri):
+            veri = kaynak(sembol)
+            if veri:
+                return veri
+    except Exception:
+        pass
     return fallback_veri_al(sembol)
 
 

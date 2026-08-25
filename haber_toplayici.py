@@ -18,6 +18,7 @@ class HaberToplayici:
     def __init__(self):
         # Türk finans haber kaynakları (RSS feeds)
         self.kaynaklar = {
+            "KAP Bildirimleri": "https://www.kap.org.tr/tr/rss/bildirim",
             "Anadolu Ajansı Finans": "https://www.aa.com.tr/tr/finans/rss",
             "Bloomberg HT": "https://www.bloomberght.com/rss",
             "Dünya Gazetesi": "https://www.dunya.com/rss",
