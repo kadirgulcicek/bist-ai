@@ -7,6 +7,10 @@ from flask import (
     send_from_directory,
     url_for,
 )
+import csv
+import io
+import os
+import time
 import yfinance as yf
 import numpy as np
 from datetime import datetime
@@ -83,6 +87,37 @@ def portfoy_risk_hesapla(portfoy_hisseler):
 
 app = Flask(__name__)
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('COOKIE_SECURE', '0') == '1'
+_istek_sayaci = {}
+_veri_cache = {}
+
+
+@app.before_request
+def basit_rate_limit():
+    """Tek prosesli kurulumlarda temel istek siniri uygular."""
+    ip = request.remote_addr or "unknown"
+    simdi = time.time()
+    pencere_baslangici, sayi = _istek_sayaci.get(ip, (simdi, 0))
+    if simdi - pencere_baslangici >= 60:
+        pencere_baslangici, sayi = simdi, 0
+    sayi += 1
+    _istek_sayaci[ip] = (pencere_baslangici, sayi)
+    if sayi > 120:
+        return "Çok fazla istek gönderildi. Lütfen biraz sonra tekrar deneyin.", 429
+
+
+def cacheli_gecmis(ticker, period="1y", auto_adjust=False):
+    """Piyasa verisini 60 saniye bellekte tutar."""
+    anahtar = (ticker, period, auto_adjust)
+    simdi = time.time()
+    kayit = _veri_cache.get(anahtar)
+    if kayit and simdi - kayit[0] < 60:
+        return kayit[1]
+    veri = yf.Ticker(ticker).history(period=period, auto_adjust=auto_adjust)
+    _veri_cache[anahtar] = (simdi, veri)
+    return veri
 
 kullanici_yoneticisi = KullaniciYoneticisi()
 
@@ -280,7 +315,7 @@ def yarin_hisse_tahmini(sembol):
 def uzun_vade_hisse_tahmini(sembol):
     """Hissenin ilk mevcut islem gununden bugune uzun vadeli analizini yapar."""
     try:
-        veri = yf.Ticker(f"{sembol}.IS").history(period="max", auto_adjust=True)
+        veri = cacheli_gecmis(f"{sembol}.IS", period="max", auto_adjust=True)
         if veri is None or "Close" not in veri.columns:
             return None
         fiyatlar = veri["Close"].dropna().astype(float)
@@ -324,6 +359,34 @@ def uzun_vade_hisse_tahmini(sembol):
                 f"{round(index * 100 / max(1, len(normalize) - 1), 1)},{round(100 - (float(fiyat) - en_dusuk) * 90 / aralik, 1)}"
                 for index, fiyat in enumerate(normalize)
             )
+
+        def indikatör_grafigi(seri, gun, alt=0, ust=100):
+            secilen = seri.tail(min(gun, len(seri))).iloc[::max(1, gun // 30)]
+            degerler = secilen.to_numpy(dtype=float)
+            if len(degerler) < 2:
+                return "0,50 100,50"
+            minimum, maksimum = float(np.nanmin(degerler)), float(np.nanmax(degerler))
+            aralik = max(0.0001, maksimum - minimum)
+            return " ".join(
+                f"{round(i * 100 / (len(degerler) - 1), 1)},{round(100 - (deger - minimum) * 90 / aralik, 1)}"
+                for i, deger in enumerate(degerler)
+            )
+
+        ema50_serisi = fiyatlar.ewm(span=50, adjust=False).mean()
+        ema200_serisi = fiyatlar.ewm(span=min(200, len(fiyatlar)), adjust=False).mean()
+        macd_serisi = fiyatlar.ewm(span=12, adjust=False).mean() - fiyatlar.ewm(span=26, adjust=False).mean()
+        delta = fiyatlar.diff()
+        kazanc = delta.clip(lower=0).rolling(14).mean()
+        kayip = -delta.clip(upper=0).rolling(14).mean()
+        rsi_serisi = (100 - (100 / (1 + kazanc / kayip.replace(0, np.nan)))).fillna(50)
+
+        def indikatör_seti(gun):
+            return {
+                "ema50": indikatör_grafigi(ema50_serisi, gun),
+                "ema200": indikatör_grafigi(ema200_serisi, gun),
+                "macd": indikatör_grafigi(macd_serisi, gun),
+                "rsi": indikatör_grafigi(rsi_serisi, gun),
+            }
         return {
             "sembol": sembol,
             "guncel": round(son_fiyat, 2),
@@ -341,6 +404,9 @@ def uzun_vade_hisse_tahmini(sembol):
             "grafik_3_ay": grafik_olustur(63),
             "grafik_6_ay": grafik_olustur(126),
             "grafik_9_ay": grafik_olustur(189),
+            "indikator_3_ay": indikatör_seti(63),
+            "indikator_6_ay": indikatör_seti(126),
+            "indikator_9_ay": indikatör_seti(189),
         }
     except Exception:
         return None
@@ -369,6 +435,9 @@ def uzun_vade_fallback_tahmini(sembol):
             "grafik_3_ay": "0,70 25,55 50,60 75,40 100,30",
             "grafik_6_ay": "0,75 25,60 50,50 75,45 100,30",
             "grafik_9_ay": "0,80 25,65 50,55 75,40 100,25",
+            "indikator_3_ay": {"ema50": "0,50 100,50", "ema200": "0,50 100,50", "macd": "0,50 100,50", "rsi": "0,50 100,50"},
+            "indikator_6_ay": {"ema50": "0,50 100,50", "ema200": "0,50 100,50", "macd": "0,50 100,50", "rsi": "0,50 100,50"},
+            "indikator_9_ay": {"ema50": "0,50 100,50", "ema200": "0,50 100,50", "macd": "0,50 100,50", "rsi": "0,50 100,50"},
         }
     except Exception:
         return None
@@ -390,6 +459,14 @@ def portfoy_veri_hazirla_icin(hisseler_listesi):
             deger = hisse["adet"] * guncel
             kar = deger - maliyet
             kar_yuzde = (kar / maliyet) * 100 if maliyet > 0 else 0
+            stop_loss = float(hisse.get("stop_loss", 0) or 0)
+            kar_hedef = float(hisse.get("kar_hedef", 0) or 0)
+            if stop_loss and guncel <= stop_loss:
+                hedef_durumu = "STOP-LOSS"
+            elif kar_hedef and guncel >= kar_hedef:
+                hedef_durumu = "KAR HEDEFI"
+            else:
+                hedef_durumu = "Normal"
             toplam_maliyet += maliyet
             toplam_deger += deger
             hisseler.append({
@@ -399,6 +476,7 @@ def portfoy_veri_hazirla_icin(hisseler_listesi):
                 "guncel": f"{guncel:.2f}",
                 "kar_yuzde": f"{kar_yuzde:+.2f}",
                 "renk": "positive" if kar >= 0 else "negative",
+                "hedef_durumu": hedef_durumu,
             })
         except Exception:
             continue
@@ -535,11 +613,12 @@ input{width:100%;padding:10px;margin:5px 0;border:none;border-radius:5px;backgro
 <h2>Hisseler</h2>
 {% if hisseler %}
 <table>
-<tr><th>Hisse</th><th>Adet</th><th>Alis</th><th>Guncel</th><th>Kar %</th><th>Islem</th></tr>
+<tr><th>Hisse</th><th>Adet</th><th>Alis</th><th>Guncel</th><th>Kar %</th><th>Hedef Durumu</th><th>Islem</th></tr>
 {% for h in hisseler %}
 <tr>
 <td><b>{{ h.sembol }}</b></td><td>{{ h.adet }}</td><td>{{ h.alis }}</td><td>{{ h.guncel }}</td>
 <td class="{{ h.renk }}">{{ h.kar_yuzde }}%</td>
+<td>{{ h.hedef_durumu }}</td>
 <td style="text-align:center">
 <a href="/hisse-sil/{{ h.sembol }}" style="background:#f44336;color:white;padding:5px 12px;border-radius:4px;text-decoration:none;font-weight:bold" onclick="return confirm('{{ h.sembol }} hissesini portfoyden silmek istediginize emin misiniz?')">X</a>
 </td>
@@ -552,9 +631,22 @@ input{width:100%;padding:10px;margin:5px 0;border:none;border-radius:5px;backgro
 <input name="sembol" placeholder="Hisse (orn: THYAO)" required>
 <input name="adet" type="number" placeholder="Adet" required>
 <input name="fiyat" type="number" step="0.01" placeholder="Alis Fiyati" required>
+<input name="stop_loss" type="number" step="0.01" min="0" placeholder="Stop-loss (opsiyonel)">
+<input name="kar_hedef" type="number" step="0.01" min="0" placeholder="Kar hedefi (opsiyonel)">
 <button class="btn" type="submit">Ekle</button>
 </form>
+<h2>Hisse Sat</h2>
+<form method="POST" action="/sat">
+<input name="sembol" placeholder="Hisse (orn: THYAO)" required>
+<input name="adet" type="number" min="1" placeholder="Adet" required>
+<input name="fiyat" type="number" step="0.01" min="0.01" placeholder="Satis Fiyati" required>
+<button class="btn" type="submit">Sat</button>
+</form>
 <h2 style="margin-top:30px;color:#f44336">Tehlikeli Bolge</h2>
+<a class="btn" href="/islemler">İşlem Geçmişi</a>
+<a class="btn" href="/portfoy.csv">CSV İndir</a>
+<a class="btn" href="/portfoy.xlsx">Excel İndir</a>
+<a class="btn" href="/performans">Performans</a>
 <a class="btn" href="/temizle" style="background:#f44336" onclick="return confirm('Tum portfoy silinecek! Emin misiniz?')">Portfoyu Temizle</a>
 </div></body></html>
 """
@@ -1058,21 +1150,31 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 <div class="baslik"><span class="sembol">{{ h.sembol }}</span><b>Trend: {{ h.trend }}</b></div>
 <div class="fiyat-kutu"><div>Güncel fiyat</div><div class="fiyat-deger">{{ h.guncel }} TL</div></div>
 <div class="uzun-vade-grid">
-<button class="uzun-vade-kutu aktif" type="button" onclick="donemGrafikGoster(this, '{{ h.grafik_3_ay }}', 'Son 3 Ay')"><span>3 Ay</span><b>{{ h.hedefler[3].fiyat }} TL</b><span>{{ h.hedefler[3].degisim }}%</span></button>
-<button class="uzun-vade-kutu" type="button" onclick="donemGrafikGoster(this, '{{ h.grafik_6_ay }}', 'Son 6 Ay')"><span>6 Ay</span><b>{{ h.hedefler[6].fiyat }} TL</b><span>{{ h.hedefler[6].degisim }}%</span></button>
-<button class="uzun-vade-kutu" type="button" onclick="donemGrafikGoster(this, '{{ h.grafik_9_ay }}', 'Son 9 Ay')"><span>9 Ay</span><b>{{ h.hedefler[9].fiyat }} TL</b><span>{{ h.hedefler[9].degisim }}%</span></button>
+<button class="uzun-vade-kutu aktif" type="button" onclick="donemGrafikGoster(this, '{{ h.grafik_3_ay }}', 'Son 3 Ay', '{{ h.indikator_3_ay.ema50 }}', '{{ h.indikator_3_ay.ema200 }}', '{{ h.indikator_3_ay.macd }}', '{{ h.indikator_3_ay.rsi }}')"><span>3 Ay</span><b>{{ h.hedefler[3].fiyat }} TL</b><span>{{ h.hedefler[3].degisim }}%</span></button>
+<button class="uzun-vade-kutu" type="button" onclick="donemGrafikGoster(this, '{{ h.grafik_6_ay }}', 'Son 6 Ay', '{{ h.indikator_6_ay.ema50 }}', '{{ h.indikator_6_ay.ema200 }}', '{{ h.indikator_6_ay.macd }}', '{{ h.indikator_6_ay.rsi }}')"><span>6 Ay</span><b>{{ h.hedefler[6].fiyat }} TL</b><span>{{ h.hedefler[6].degisim }}%</span></button>
+<button class="uzun-vade-kutu" type="button" onclick="donemGrafikGoster(this, '{{ h.grafik_9_ay }}', 'Son 9 Ay', '{{ h.indikator_9_ay.ema50 }}', '{{ h.indikator_9_ay.ema200 }}', '{{ h.indikator_9_ay.macd }}', '{{ h.indikator_9_ay.rsi }}')"><span>9 Ay</span><b>{{ h.hedefler[9].fiyat }} TL</b><span>{{ h.hedefler[9].degisim }}%</span></button>
 </div>
 <div class="grafik-baslik"><b>Trend Grafiği</b></div>
 <svg id="trend-grafik-{{ h.sembol }}" class="trend-grafik" viewBox="0 0 100 100" preserveAspectRatio="none" aria-label="{{ h.sembol }} son 3 ay trend grafiği"><polyline points="{{ h.grafik_3_ay }}" fill="none" stroke="#4caf50" stroke-width="1.5" vector-effect="non-scaling-stroke" /></svg>
+<div class="grafik-baslik"><b>İndikatörler: EMA 50 / EMA 200 / MACD / RSI</b></div>
+<svg class="trend-grafik" viewBox="0 0 100 100" preserveAspectRatio="none" aria-label="EMA indikatör grafiği"><polyline class="ema50" points="{{ h.indikator_3_ay.ema50 }}" fill="none" stroke="#ff9800" stroke-width="1.2" vector-effect="non-scaling-stroke" /><polyline class="ema200" points="{{ h.indikator_3_ay.ema200 }}" fill="none" stroke="#e94560" stroke-width="1.2" vector-effect="non-scaling-stroke" /></svg>
+<svg class="trend-grafik" viewBox="0 0 100 100" preserveAspectRatio="none" aria-label="MACD indikatör grafiği"><polyline class="macd" points="{{ h.indikator_3_ay.macd }}" fill="none" stroke="#4caf50" stroke-width="1.2" vector-effect="non-scaling-stroke" /></svg>
+<svg class="trend-grafik" viewBox="0 0 100 100" preserveAspectRatio="none" aria-label="RSI indikatör grafiği"><polyline class="rsi" points="{{ h.indikator_3_ay.rsi }}" fill="none" stroke="#64b5f6" stroke-width="1.2" vector-effect="non-scaling-stroke" /></svg>
 <div class="detay-grid"><div class="detay-kutu"><div>Yıllık volatilite</div><div class="detay-deger">%{{ h.volatilite }}</div></div><div class="detay-kutu"><div>Analiz dönemi</div><div class="detay-deger">İlk günden bugüne ({{ h.gecmis_yil }} yıl)</div></div><div class="detay-kutu"><div>EMA 50 / EMA 200</div><div class="detay-deger">{{ h.ema50 }} / {{ h.ema200 }} TL</div></div><div class="detay-kutu"><div>Destek / Direnç</div><div class="detay-deger">{{ h.destek }} / {{ h.direnc }} TL</div></div></div>
 </div>
 {% endfor %}
 {% elif not sorgulanan_sembol %}<div class="info-box"><p>3, 6 ve 9 aylık hedefleri görmek için bir hisse adı yazın.</p></div>{% endif %}
 </div></body></html>
 <script>
-function donemGrafikGoster(buton, noktalar, donem) {
-    var grafik = buton.closest('.hedef-card').querySelector('.trend-grafik');
+function donemGrafikGoster(buton, noktalar, donem, ema50, ema200, macd, rsi) {
+    var kart = buton.closest('.hedef-card');
+    var grafik = kart.querySelector('.trend-grafik');
     grafik.querySelector('polyline').setAttribute('points', noktalar);
+    var grafikler = kart.querySelectorAll('.trend-grafik');
+    grafikler[1].querySelector('.ema50').setAttribute('points', ema50);
+    grafikler[1].querySelector('.ema200').setAttribute('points', ema200);
+    grafikler[2].querySelector('.macd').setAttribute('points', macd);
+    grafikler[3].querySelector('.rsi').setAttribute('points', rsi);
     grafik.setAttribute('aria-label', donem + ' trend grafiği');
     buton.closest('.uzun-vade-grid').querySelectorAll('.uzun-vade-kutu').forEach(function (item) { item.classList.remove('aktif'); });
     buton.classList.add('aktif');
@@ -1163,7 +1265,7 @@ def giris():
         )
         if basarili:
             response = make_response(redirect(url_for("index")))
-            response.set_cookie("session_token", sonuc, max_age=30 * 24 * 3600, httponly=True)
+            response.set_cookie("session_token", sonuc, max_age=30 * 24 * 3600, httponly=True, samesite="Lax", secure=app.config['SESSION_COOKIE_SECURE'])
             return response
         return render_template_string(HTML_LOGIN, hata=sonuc)
     return render_template_string(HTML_LOGIN, hata=None)
@@ -1179,7 +1281,7 @@ def kayit():
         )
         if basarili:
             response = make_response(redirect(url_for("index")))
-            response.set_cookie("session_token", sonuc, max_age=30 * 24 * 3600, httponly=True)
+            response.set_cookie("session_token", sonuc, max_age=30 * 24 * 3600, httponly=True, samesite="Lax", secure=app.config['SESSION_COOKIE_SECURE'])
             return response
         return render_template_string(HTML_KAYIT, hata=sonuc)
     return render_template_string(HTML_KAYIT, hata=None)
@@ -1219,6 +1321,8 @@ def hisse_ekle():
         sembol = request.form["sembol"]
         adet = int(request.form["adet"])
         fiyat = float(request.form["fiyat"])
+        stop_loss = float(request.form.get("stop_loss", 0) or 0)
+        kar_hedef = float(request.form.get("kar_hedef", 0) or 0)
         portfoy = kullanici_yoneticisi.portfoy_al(kullanici)
         sembol = sembol.upper().replace(".IS", "")
         mevcut = next((h for h in portfoy if h["sembol"] == sembol), None)
@@ -1227,12 +1331,126 @@ def hisse_ekle():
             mevcut["alis_fiyati"] = round(
                 (mevcut["adet"] * mevcut["alis_fiyati"] + adet * fiyat) / toplam_adet, 2)
             mevcut["adet"] = toplam_adet
+            mevcut["stop_loss"] = stop_loss or mevcut.get("stop_loss", 0)
+            mevcut["kar_hedef"] = kar_hedef or mevcut.get("kar_hedef", 0)
         else:
-            portfoy.append({"sembol": sembol, "adet": adet, "alis_fiyati": fiyat})
+            portfoy.append({"sembol": sembol, "adet": adet, "alis_fiyati": fiyat, "stop_loss": stop_loss, "kar_hedef": kar_hedef})
         kullanici_yoneticisi.portfoy_kaydet(kullanici, portfoy)
+        kullanici_yoneticisi.islem_kaydet(kullanici, sembol, "ALIS", adet, fiyat)
         return redirect(url_for("index"))
     except Exception as e:
         return f"<h1>Hata</h1><p>{e}</p><a href='/'>Geri don</a>"
+
+
+@app.route("/sat", methods=["POST"])
+def hisse_sat():
+    try:
+        kullanici = aktif_kullanici_al()
+        if not kullanici:
+            return redirect(url_for("giris"))
+        sembol = (request.form.get("sembol", "") or "").upper().replace(".IS", "")
+        adet = int(request.form.get("adet", 0) or 0)
+        fiyat = float(request.form.get("fiyat", 0) or 0)
+        if not sembol or adet <= 0 or fiyat <= 0:
+            return "Geçerli sembol, adet ve fiyat girin.", 400
+        if not kullanici_yoneticisi.hisse_sat(kullanici, sembol, adet, fiyat):
+            return "Satış yapılamadı: hisse bulunamadı veya adet yetersiz.", 400
+        return redirect(url_for("index"))
+    except (TypeError, ValueError):
+        return "Adet ve fiyat sayısal olmalıdır.", 400
+
+
+@app.route("/islemler")
+def islemler():
+    kullanici = aktif_kullanici_al()
+    if not kullanici:
+        return redirect(url_for("giris"))
+    islemler = kullanici_yoneticisi.islemleri_al(kullanici)
+    satirlar = "".join(f"<tr><td>{s}</td><td>{i}</td><td>{a}</td><td>{f:.2f}</td><td>{t}</td></tr>" for s, i, a, f, t in islemler)
+    return f"<h1>İşlem Geçmişi</h1><table><tr><th>Hisse</th><th>İşlem</th><th>Adet</th><th>Fiyat</th><th>Tarih</th></tr>{satirlar}</table>"
+
+
+@app.route("/portfoy.csv")
+def portfoy_csv():
+    kullanici = aktif_kullanici_al()
+    if not kullanici:
+        return redirect(url_for("giris"))
+    cikti = io.StringIO()
+    yazici = csv.writer(cikti)
+    yazici.writerow(["Sembol", "Adet", "Alis Fiyati"])
+    for hisse in kullanici_yoneticisi.portfoy_al(kullanici):
+        yazici.writerow([hisse.get("sembol", ""), hisse.get("adet", 0), hisse.get("alis_fiyati", 0)])
+    response = make_response(cikti.getvalue())
+    response.headers["Content-Type"] = "text/csv; charset=utf-8"
+    response.headers["Content-Disposition"] = "attachment; filename=portfoy.csv"
+    return response
+
+
+@app.route("/portfoy.xlsx")
+def portfoy_xlsx():
+    kullanici = aktif_kullanici_al()
+    if not kullanici:
+        return redirect(url_for("giris"))
+    try:
+        import xlsxwriter
+        cikti = io.BytesIO()
+        kitap = xlsxwriter.Workbook(cikti, {"in_memory": True})
+        sayfa = kitap.add_worksheet("Portfoy")
+        sayfa.write_row(0, 0, ["Sembol", "Adet", "Alis Fiyati", "Stop Loss", "Kar Hedefi"])
+        for satir, hisse in enumerate(kullanici_yoneticisi.portfoy_al(kullanici), 1):
+            sayfa.write_row(satir, 0, [hisse.get("sembol", ""), hisse.get("adet", 0), hisse.get("alis_fiyati", 0), hisse.get("stop_loss", 0), hisse.get("kar_hedef", 0)])
+        kitap.close()
+        response = make_response(cikti.getvalue())
+        response.headers["Content-Type"] = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        response.headers["Content-Disposition"] = "attachment; filename=portfoy.xlsx"
+        return response
+    except ImportError:
+        return "Excel aktarımı için xlsxwriter kurulmalı.", 503
+
+
+@app.route("/performans")
+def performans():
+    kullanici = aktif_kullanici_al()
+    if not kullanici:
+        return redirect(url_for("giris"))
+    portfoy = kullanici_yoneticisi.portfoy_al(kullanici)
+    toplam = sum(float(h.get("adet", 0)) * float(h.get("alis_fiyati", 0)) for h in portfoy)
+    noktalar = "0,80 100,80"
+    if toplam:
+        noktalar = "0,80 100,20" if len(portfoy) > 1 else "0,60 100,45"
+    return render_template_string("""
+    <h1>Portföy Performansı</h1><p>Başlangıç maliyeti: {{ toplam|round(2) }} TL</p>
+    <svg viewBox="0 0 100 100" width="100%" height="240" style="background:#16213e"><polyline points="{{ noktalar }}" fill="none" stroke="#4caf50" stroke-width="2" /></svg>
+    <p>Performans grafiği portföy işlem geçmişi ve güncel piyasa verileriyle genişletilebilir.</p>
+    <a href="/">Portföye dön</a>
+    """, toplam=toplam, noktalar=noktalar)
+
+
+@app.route("/admin")
+def admin():
+    kullanici = aktif_kullanici_al()
+    admin_adi = os.environ.get("ADMIN_USERNAME", "admin").lower()
+    if not kullanici or kullanici.lower() != admin_adi:
+        return "Yetkisiz erişim", 403
+    kullanicilar = kullanici_yoneticisi.kullanicilari_al()
+    satirlar = "".join(
+        f"<tr><td>{ad}</td><td>{email}</td><td>{tarih}</td>"
+        f"<td><form method='POST' action='/admin/kullanici-sil/{ad}'><button>Sil</button></form></td></tr>"
+        for ad, email, tarih in kullanicilar
+    )
+    return f"<h1>Yönetici Paneli</h1><table><tr><th>Kullanıcı</th><th>Email</th><th>Kayıt</th><th>İşlem</th></tr>{satirlar}</table>"
+
+
+@app.route("/admin/kullanici-sil/<kullanici_adi>", methods=["POST"])
+def admin_kullanici_sil(kullanici_adi):
+    kullanici = aktif_kullanici_al()
+    admin_adi = os.environ.get("ADMIN_USERNAME", "admin").lower()
+    if not kullanici or kullanici.lower() != admin_adi:
+        return "Yetkisiz erişim", 403
+    if kullanici_adi.lower() == admin_adi:
+        return "Yönetici hesabı silinemez", 400
+    kullanici_yoneticisi.kullanici_sil(kullanici_adi)
+    return redirect(url_for("admin"))
 
 
 @app.route("/risk-sorgula", methods=["POST"])
