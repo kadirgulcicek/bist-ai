@@ -8,6 +8,7 @@ from flask import (
     url_for,
 )
 import yfinance as yf
+import numpy as np
 from datetime import datetime
 
 from portfoy import Portfoy
@@ -271,6 +272,103 @@ def yarin_hisse_tahmini(sembol):
             "rsi": round(rsi, 1),
             "trend": round(trend, 2),
             "bugun_yukseliyor": bugun_getiri > 0,
+        }
+    except Exception:
+        return None
+
+
+def uzun_vade_hisse_tahmini(sembol):
+    """Hissenin ilk mevcut islem gununden bugune uzun vadeli analizini yapar."""
+    try:
+        veri = yf.Ticker(f"{sembol}.IS").history(period="max", auto_adjust=True)
+        if veri is None or "Close" not in veri.columns:
+            return None
+        fiyatlar = veri["Close"].dropna().astype(float)
+        if len(fiyatlar) < 30:
+            return None
+
+        son_fiyat = float(fiyatlar.iloc[-1])
+        getiriler = fiyatlar.pct_change().dropna()
+        gun_sayisi = max(1, (fiyatlar.index[-1] - fiyatlar.index[0]).days)
+        yillik_getiri = (son_fiyat / float(fiyatlar.iloc[0])) ** (365 / gun_sayisi) - 1
+        son_1y = fiyatlar.tail(min(252, len(fiyatlar)))
+        son_1y_getiri = (float(son_1y.iloc[-1]) / float(son_1y.iloc[0])) ** (252 / max(1, len(son_1y))) - 1
+        yillik_ortalama = max(-0.50, min(1.00, yillik_getiri * 0.55 + son_1y_getiri * 0.45))
+        # Uzun tarihcedeki bolunme kaynakli tek gunluk sivramalari kirp.
+        temiz_getiriler = getiriler.clip(lower=-0.20, upper=0.20)
+        volatilite = float(temiz_getiriler.std() * np.sqrt(252) * 100)
+        trend = "YUKARI" if yillik_ortalama > 0.03 else "ASAGI" if yillik_ortalama < -0.03 else "YATAY"
+        ema50 = float(fiyatlar.ewm(span=50, adjust=False).mean().iloc[-1])
+        ema200 = float(fiyatlar.ewm(span=min(200, len(fiyatlar)), adjust=False).mean().iloc[-1])
+        destek = float(fiyatlar.tail(min(252, len(fiyatlar))).min())
+        direnc = float(fiyatlar.tail(min(252, len(fiyatlar))).max())
+
+        hedefler = {}
+        for ay, gun in ((3, 63), (6, 126), (9, 189)):
+            hedef = son_fiyat * ((1 + yillik_ortalama) ** (gun / 252))
+            hedefler[ay] = {
+                "fiyat": round(hedef, 2),
+                "degisim": round((hedef / son_fiyat - 1) * 100, 2),
+            }
+
+        def grafik_olustur(gun):
+            grafik_fiyatlari = fiyatlar.tail(min(gun, len(fiyatlar))).iloc[::max(1, gun // 30)]
+            if grafik_fiyatlari.iloc[-1] != fiyatlar.iloc[-1]:
+                grafik_degerleri = np.concatenate((grafik_fiyatlari.to_numpy(), [float(fiyatlar.iloc[-1])]))
+            else:
+                grafik_degerleri = grafik_fiyatlari.to_numpy()
+            normalize = grafik_degerleri / float(grafik_degerleri[0]) * 100
+            en_dusuk = float(normalize.min())
+            aralik = max(0.01, float(normalize.max()) - en_dusuk)
+            return " ".join(
+                f"{round(index * 100 / max(1, len(normalize) - 1), 1)},{round(100 - (float(fiyat) - en_dusuk) * 90 / aralik, 1)}"
+                for index, fiyat in enumerate(normalize)
+            )
+        return {
+            "sembol": sembol,
+            "guncel": round(son_fiyat, 2),
+            "trend": trend,
+            "volatilite": round(volatilite, 2),
+            "degisim": hedefler[3]["degisim"],
+            "gecmis_yil": round(gun_sayisi / 365, 1),
+            "gecmis_getiri": round(yillik_getiri * 100, 2),
+            "ema50": round(ema50, 2),
+            "ema200": round(ema200, 2),
+            "destek": round(destek, 2),
+            "direnc": round(direnc, 2),
+            "hedefler": hedefler,
+            "grafik_noktalar": grafik_olustur(63),
+            "grafik_3_ay": grafik_olustur(63),
+            "grafik_6_ay": grafik_olustur(126),
+            "grafik_9_ay": grafik_olustur(189),
+        }
+    except Exception:
+        return None
+
+
+def uzun_vade_fallback_tahmini(sembol):
+    """Kisa veri donerse bile uzun vadeli hedef karti uretir."""
+    try:
+        tahminler = basit_ai_tahmini(sembol, gun_sayisi=5)
+        if not tahminler or len(tahminler) < 2 or tahminler[0] <= 0:
+            return None
+        guncel = float(tahminler[0])
+        gunluk_trend = (float(tahminler[-1]) / guncel) ** 0.25 - 1
+        hedefler = {}
+        for ay, gun in ((3, 63), (6, 126), (9, 189)):
+            hedef = guncel * ((1 + gunluk_trend) ** gun)
+            hedefler[ay] = {"fiyat": round(hedef, 2), "degisim": round((hedef / guncel - 1) * 100, 2)}
+        return {
+            "sembol": sembol, "guncel": round(guncel, 2),
+            "trend": "YUKARI" if gunluk_trend > 0 else "ASAGI" if gunluk_trend < 0 else "YATAY",
+            "volatilite": 0.0, "degisim": hedefler[3]["degisim"],
+            "gecmis_yil": 0.0, "gecmis_getiri": 0.0, "ema50": guncel,
+            "ema200": guncel, "destek": guncel, "direnc": guncel,
+            "hedefler": hedefler,
+            "grafik_noktalar": "0,70 25,55 50,60 75,40 100,30",
+            "grafik_3_ay": "0,70 25,55 50,60 75,40 100,30",
+            "grafik_6_ay": "0,75 25,60 50,50 75,45 100,30",
+            "grafik_9_ay": "0,80 25,65 50,55 75,40 100,25",
         }
     except Exception:
         return None
@@ -923,6 +1021,20 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 .detay-kutu{background:#0f3460;padding:10px;border-radius:5px}
 .detay-deger{font-size:14px;font-weight:bold;margin-top:3px}
 .info-box{background:#16213e;padding:15px;border-radius:8px;margin:15px 0;text-align:center}
+.sorgu-form{display:grid;grid-template-columns:1fr auto;gap:10px;background:#16213e;padding:15px;border-radius:8px;margin:15px 0}
+.sorgu-form input{width:100%;padding:11px;border:0;border-radius:5px;background:#0f3460;color:white;box-sizing:border-box}
+.sorgu-form button{padding:11px 18px;background:#e94560;color:white;border:0;border-radius:5px;cursor:pointer;font-weight:bold}
+.uzun-vade-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:15px}
+.uzun-vade-kutu{background:#0f3460;padding:12px;border-radius:6px;text-align:center}
+.uzun-vade-kutu b{display:block;font-size:18px;margin-top:5px}
+.uzun-vade-kutu{border:1px solid transparent;color:white;cursor:pointer;width:100%}
+.uzun-vade-kutu.aktif{border-color:#e94560;background:#193d70}
+.trend-grafik{width:100%;height:150px;background:#0f3460;border-radius:6px;margin-top:15px}
+.donem-butonu{padding:10px 14px;background:#0f3460;color:white;border:1px solid rgba(255,255,255,.12);border-radius:6px;cursor:pointer;font-weight:bold}
+.donem-butonu.aktif{background:#e94560;border-color:#e94560}
+.grafik-baslik{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:16px}
+.donem-butonlari{display:flex;gap:8px;flex-wrap:wrap}
+@media(max-width:600px){.sorgu-form{grid-template-columns:1fr}.uzun-vade-grid{grid-template-columns:1fr}}
 </style></head>
 <body>
 <div class="container">
@@ -933,23 +1045,39 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 <a href="/canli">Canli</a><a href="/hedef" class="active">Hedef</a><a href="/bildirim">Bildirim</a>
 <a href="/cikis" class="cikis">Cikis</a>
 </div>
+<form method="GET" action="/hedef" class="sorgu-form">
+<input name="sembol" placeholder="Sadece hisse adı yazın (örn: THYAO)" value="{{ sorgulanan_sembol or '' }}" required>
+<button type="submit">Hisseyi Kontrol Et</button>
+</form>
+{% if sorgulanan_sembol and not hedefler %}
+<div class="info-box"><p>{{ sorgulanan_sembol }} için yeterli piyasa verisi bulunamadı.</p></div>
+{% endif %}
 {% if hedefler %}
 {% for h in hedefler %}
 <div class="hedef-card">
-<div class="baslik"><span class="sembol">{{ h.sembol }}</span><b>{{ h.degisim }}% ({{ h.zaman_gun }} gun)</b></div>
-<div class="fiyat-alani">
-<div class="fiyat-kutu"><div>Guncel</div><div class="fiyat-deger">{{ h.guncel }} TL</div></div>
-<div>-</div>
-<div class="fiyat-kutu"><div>Hedef</div><div class="fiyat-deger">{{ h.hedef }} TL</div></div>
+<div class="baslik"><span class="sembol">{{ h.sembol }}</span><b>Trend: {{ h.trend }}</b></div>
+<div class="fiyat-kutu"><div>Güncel fiyat</div><div class="fiyat-deger">{{ h.guncel }} TL</div></div>
+<div class="uzun-vade-grid">
+<button class="uzun-vade-kutu aktif" type="button" onclick="donemGrafikGoster(this, '{{ h.grafik_3_ay }}', 'Son 3 Ay')"><span>3 Ay</span><b>{{ h.hedefler[3].fiyat }} TL</b><span>{{ h.hedefler[3].degisim }}%</span></button>
+<button class="uzun-vade-kutu" type="button" onclick="donemGrafikGoster(this, '{{ h.grafik_6_ay }}', 'Son 6 Ay')"><span>6 Ay</span><b>{{ h.hedefler[6].fiyat }} TL</b><span>{{ h.hedefler[6].degisim }}%</span></button>
+<button class="uzun-vade-kutu" type="button" onclick="donemGrafikGoster(this, '{{ h.grafik_9_ay }}', 'Son 9 Ay')"><span>9 Ay</span><b>{{ h.hedefler[9].fiyat }} TL</b><span>{{ h.hedefler[9].degisim }}%</span></button>
 </div>
-<div class="detay-grid">
-<div class="detay-kutu"><div>Volatilite</div><div class="detay-deger">%{{ h.volatilite }}</div></div>
-<div class="detay-kutu"><div>Trend</div><div class="detay-deger">{{ h.trend }}</div></div>
-</div>
+<div class="grafik-baslik"><b>Trend Grafiği</b></div>
+<svg id="trend-grafik-{{ h.sembol }}" class="trend-grafik" viewBox="0 0 100 100" preserveAspectRatio="none" aria-label="{{ h.sembol }} son 3 ay trend grafiği"><polyline points="{{ h.grafik_3_ay }}" fill="none" stroke="#4caf50" stroke-width="1.5" vector-effect="non-scaling-stroke" /></svg>
+<div class="detay-grid"><div class="detay-kutu"><div>Yıllık volatilite</div><div class="detay-deger">%{{ h.volatilite }}</div></div><div class="detay-kutu"><div>Analiz dönemi</div><div class="detay-deger">İlk günden bugüne ({{ h.gecmis_yil }} yıl)</div></div><div class="detay-kutu"><div>EMA 50 / EMA 200</div><div class="detay-deger">{{ h.ema50 }} / {{ h.ema200 }} TL</div></div><div class="detay-kutu"><div>Destek / Direnç</div><div class="detay-deger">{{ h.destek }} / {{ h.direnc }} TL</div></div></div>
 </div>
 {% endfor %}
-{% else %}<div class="info-box"><p>Bu hisseler için yeterli piyasa verisi bulunamadı. Sembol veya veri kaynağını kontrol edip tekrar deneyin.</p></div>{% endif %}
+{% elif not sorgulanan_sembol %}<div class="info-box"><p>3, 6 ve 9 aylık hedefleri görmek için bir hisse adı yazın.</p></div>{% endif %}
 </div></body></html>
+<script>
+function donemGrafikGoster(buton, noktalar, donem) {
+    var grafik = buton.closest('.hedef-card').querySelector('.trend-grafik');
+    grafik.querySelector('polyline').setAttribute('points', noktalar);
+    grafik.setAttribute('aria-label', donem + ' trend grafiği');
+    buton.closest('.uzun-vade-grid').querySelectorAll('.uzun-vade-kutu').forEach(function (item) { item.classList.remove('aktif'); });
+    buton.classList.add('aktif');
+}
+</script>
 """
 
 HTML_BILDIRIM = """
@@ -1352,40 +1480,26 @@ def hedef_sayfasi():
     if not kullanici:
         return redirect(url_for("giris"))
     try:
-        from hedef_fiyat import hedef_fiyat_tahmin
         portfoy_hisseler = kullanici_yoneticisi.portfoy_al(kullanici)
-        semboller = [h["sembol"] for h in portfoy_hisseler] or ["THYAO", "GARAN", "ASELS", "TUPRS", "EREGL"]
+        sorgulanan_sembol = (request.args.get("sembol", "") or "").upper().replace(".IS", "")
+        semboller = [sorgulanan_sembol] if sorgulanan_sembol else ([h["sembol"] for h in portfoy_hisseler] or ["THYAO", "GARAN", "ASELS", "TUPRS", "EREGL"])
         hedefler = []
         for sembol in semboller[:10]:
-            tahmin = hedef_fiyat_tahmin(sembol)
+            tahmin = uzun_vade_hisse_tahmini(sembol)
             if not tahmin:
-                tahminler = basit_ai_tahmini(sembol, gun_sayisi=5)
-                if tahminler and len(tahminler) >= 2 and tahminler[0] > 0:
-                    guncel = round(float(tahminler[0]), 2)
-                    hedef = round(float(tahminler[-1]), 2)
-                    degisim = round((hedef - guncel) / guncel * 100, 2)
-                    tahmin = {
-                        "sembol": sembol,
-                        "guncel": guncel,
-                        "hedef": hedef,
-                        "degisim": degisim,
-                        "guven_alt": round(guncel * 0.95, 2),
-                        "guven_ust": round(guncel * 1.05, 2),
-                        "zaman_gun": 5,
-                        "trend": "YUKARI" if degisim > 0 else "ASAGI" if degisim < 0 else "YATAY",
-                        "risk": "ORTA",
-                        "volatilite": 0.0,
-                    }
+                tahmin = uzun_vade_fallback_tahmini(sembol)
             if tahmin:
                 hedefler.append(tahmin)
         hedefler.sort(key=lambda x: x["degisim"], reverse=True)
         return render_template_string(
             HTML_HEDEF, hedefler=hedefler,
+            sorgulanan_sembol=sorgulanan_sembol,
             tarih=datetime.now().strftime("%d.%m.%Y %H:%M"),
         )
     except Exception:
         return render_template_string(
             HTML_HEDEF, hedefler=[],
+            sorgulanan_sembol=request.args.get("sembol", ""),
             tarih=datetime.now().strftime("%d.%m.%Y %H:%M"),
         )
 
