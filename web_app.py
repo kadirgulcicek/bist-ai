@@ -12,22 +12,27 @@ from datetime import datetime
 
 from portfoy import Portfoy
 from sektor_analiz import sektor_analiz_yap, HISSE_SEKTORLERI
-from risk_analiz import cesitlendirme_puani
+
 try:
-    from risk_gelismis import portfoy_risk_analiz
+    from risk_gelismis import portfoy_risk_analiz as _portfoy_risk_analiz
     risk_modulu_yuklu = True
 except ImportError:
-    from risk_analiz import (
-        portfoy_verilerini_al,
-        konsantrasyon_riski,
-        volatilite_riski,
-        drawdown_riski,
-        cesitlendirme_puani,
-        korelasyon_analizi
-    )
-    risk_modulu_yuklu = False
+    try:
+        from risk_analiz import portfoy_risk_analizi as _portfoy_risk_analiz
+        risk_modulu_yuklu = True
+    except ImportError:
+        _portfoy_risk_analiz = None
+        risk_modulu_yuklu = False
+
 from ensemble_model import EnsembleTahminci
 from auth import KullaniciYoneticisi
+
+
+def portfoy_risk_hesapla(portfoy_hisseler):
+    """Web arayuzunde tek risk akisi."""
+    if _portfoy_risk_analiz is None:
+        return None
+    return _portfoy_risk_analiz(portfoy_hisseler)
 
 app = Flask(__name__)
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
@@ -829,38 +834,9 @@ def risk():
         )
 
     try:
-        if risk_modulu_yuklu:
-            sonuc = portfoy_risk_analiz(portfoy_hisseler)
-        else:
-            from risk_analiz import portfoy_verilerini_al, cesitlendirme_puani
-            veri = portfoy_verilerini_al()
-            if not veri:
-                return "Risk analizi yapilamadi (eski modul)."
-            puan = cesitlendirme_puani(veri["hisseler"], veri["toplam_deger"])
-            sonuc = {
-                "hisse_verileri": [{
-                    "sembol": h["sembol"], "agirlik": 0,
-                    "sharpe": 0, "max_drawdown": 0,
-                    "volatilite": 0, "beta": 1,
-                    "risk_skor": 5, "kar": 0, "kar_yuzde": 0
-                } for h in veri["hisseler"]],
-                "korelasyonlar": [],
-                "toplam_deger": veri["toplam_deger"],
-                "toplam_maliyet": veri["toplam_deger"],
-                "toplam_kar": 0,
-                "toplam_kar_yuzde": 0,
-                "portfoy_sharpe": 0,
-                "portfoy_volatilite": 0,
-                "portfoy_var": 0,
-                "portfoy_beta": 1,
-                "cesitlendirme": puan,
-                "genel_risk": 50,
-                "risk_seviye": "ORTA",
-                "risk_renk": "#ff9800",
-                "oneriler": [
-                    "risk_gelismis.py modulu bulunamadi, basit analiz gosteriliyor."
-                ]
-            }
+        sonuc = portfoy_risk_hesapla(portfoy_hisseler)
+        if sonuc is None:
+            return "Risk analizi yapilamadi."
 
         if not sonuc:
             return "Risk analizi yapilamadi."
