@@ -30,9 +30,55 @@ from auth import KullaniciYoneticisi
 
 def portfoy_risk_hesapla(portfoy_hisseler):
     """Web arayuzunde tek risk akisi."""
-    if _portfoy_risk_analiz is None:
-        return None
-    return _portfoy_risk_analiz(portfoy_hisseler)
+    if _portfoy_risk_analiz is not None:
+        try:
+            sonuc = _portfoy_risk_analiz(portfoy_hisseler)
+            if sonuc:
+                return sonuc
+        except Exception:
+            pass
+
+    maliyet = sum(
+        float(h.get("adet", 0)) * float(h.get("alis_fiyati", 0))
+        for h in portfoy_hisseler
+    )
+    hisse_verileri = []
+    for hisse in portfoy_hisseler:
+        adet = int(hisse.get("adet", 0))
+        fiyat = float(hisse.get("alis_fiyati", 0))
+        hisse_verileri.append({
+            "sembol": str(hisse.get("sembol", "")).upper(),
+            "adet": adet,
+            "maliyet": fiyat,
+            "guncel": fiyat,
+            "deger": adet * fiyat,
+            "kar_yuzde": 0.0,
+            "agirlik": round((adet * fiyat / maliyet) * 100, 2) if maliyet else 0.0,
+            "sharpe": 0.0,
+            "max_drawdown": 0.0,
+            "volatilite": 0.0,
+            "beta": 1.0,
+            "risk_skor": 5,
+        })
+    cesitlendirme = min(100, len(hisse_verileri) * 20)
+    return {
+        "hisse_verileri": hisse_verileri,
+        "korelasyonlar": [],
+        "toplam_deger": round(maliyet, 2),
+        "toplam_maliyet": round(maliyet, 2),
+        "toplam_kar": 0.0,
+        "toplam_kar_yuzde": 0.0,
+        "portfoy_sharpe": 0.0,
+        "portfoy_volatilite": 0.0,
+        "portfoy_var": 0.0,
+        "portfoy_beta": 1.0,
+        "cesitlendirme": cesitlendirme,
+        "genel_risk": 50,
+        "risk_seviye": "VERI YOK",
+        "risk_renk": "#607d8b",
+        "oneriler": ["Piyasa verisi alınamadı; temel portföy özeti gösteriliyor."],
+        "tarih": datetime.now().strftime("%d.%m.%Y %H:%M"),
+    }
 
 app = Flask(__name__)
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
