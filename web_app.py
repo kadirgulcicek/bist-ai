@@ -31,6 +31,7 @@ except ImportError:
 
 from ensemble_model import EnsembleTahminci
 from auth import KullaniciYoneticisi
+from piyasa_istihbarati import hisse_istihbarat_analizi
 
 
 def portfoy_risk_hesapla(portfoy_hisseler):
@@ -92,6 +93,46 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_SECURE'] = os.environ.get('COOKIE_SECURE', '0') == '1'
 _istek_sayaci = {}
 _veri_cache = {}
+
+
+@app.after_request
+def hamburger_menu_ekle(response):
+    """Tum HTML sayfalarina ortak hamburger navigasyonu ekler."""
+    if not response.content_type or "text/html" not in response.content_type:
+        return response
+    html = response.get_data(as_text=True)
+    if '<div class="menu">' not in html:
+        return response
+    stil = """
+<style>
+.header{padding-left:64px;box-sizing:border-box}
+.menu-toggle{position:fixed;top:14px;left:14px;z-index:30;width:42px;height:38px;background:#e94560;color:white;border:0;border-radius:7px;font-size:24px;line-height:1;cursor:pointer}
+.menu{display:none;position:fixed;top:60px;left:14px;z-index:20;width:min(240px,calc(100vw - 28px));padding:10px;background:#16213e;border:1px solid rgba(255,255,255,.12);border-radius:8px;box-shadow:0 12px 28px rgba(0,0,0,.35);flex-direction:column;gap:6px;margin:0}
+.menu.acik{display:flex}.menu a{width:100%;box-sizing:border-box;flex:none;text-align:left;padding:10px 12px}
+.menu-backdrop{display:none;position:fixed;inset:0;z-index:15;background:rgba(0,0,0,.3)}.menu-backdrop.acik{display:block}
+</style>
+"""
+    script = """
+<script>
+(function(){
+  var menu=document.querySelector('.menu');
+  if(!menu || document.querySelector('.menu-toggle')) return;
+  var toggle=document.createElement('button');
+  toggle.className='menu-toggle'; toggle.type='button'; toggle.setAttribute('aria-label','Menüyü aç'); toggle.textContent='☰';
+  var backdrop=document.createElement('div'); backdrop.className='menu-backdrop';
+  document.body.append(toggle,backdrop);
+  function kapat(){menu.classList.remove('acik');backdrop.classList.remove('acik');toggle.setAttribute('aria-label','Menüyü aç');}
+  toggle.addEventListener('click',function(){var acik=menu.classList.toggle('acik');backdrop.classList.toggle('acik',acik);toggle.setAttribute('aria-label',acik?'Menüyü kapat':'Menüyü aç');});
+  backdrop.addEventListener('click',kapat);
+  menu.querySelectorAll('a').forEach(function(link){link.addEventListener('click',kapat);});
+})();
+</script>
+"""
+    html = html.replace('</head>', stil + '</head>', 1)
+    html = html.replace('<div class="menu">', '<div class="menu">', 1)
+    html = html.replace('</body>', script + '</body>', 1)
+    response.set_data(html)
+    return response
 
 
 @app.before_request
@@ -595,7 +636,7 @@ input{width:100%;padding:10px;margin:5px 0;border:none;border-radius:5px;backgro
 <div class="header"><div><h1>BIST AI</h1><small>SİZİN İÇİN ÇALIŞIYORUZ</small></div><p>{{ tarih }}</p></div>
 <div class="menu">
 <a href="/" class="active">Portfoy</a><a href="/panel">Panel</a><a href="/sektor">Sektor</a>
-<a href="/risk">Risk</a><a href="/ai">AI</a><a href="/sinyal">Sinyal</a>
+<a href="/risk">Risk</a><a href="/ai">AI</a><a href="/istihbarat">Istihbarat</a><a href="/sinyal">Sinyal</a>
 <a href="/canli">Canli</a><a href="/hedef">Hedef</a><a href="/bildirim">Bildirim</a>
 </div>
 <div class="stats">
@@ -680,7 +721,7 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 <div class="header"><div><h1>BIST AI</h1><small>SİZİN İÇİN ÇALIŞIYORUZ</small></div><p>{{ tarih }}</p></div>
 <div class="menu">
 <a href="/">Portfoy</a><a href="/panel">Panel</a><a href="/sektor" class="active">Sektor</a>
-<a href="/risk">Risk</a><a href="/ai">AI</a><a href="/sinyal">Sinyal</a>
+<a href="/risk">Risk</a><a href="/ai">AI</a><a href="/istihbarat">Istihbarat</a><a href="/sinyal">Sinyal</a>
 <a href="/canli">Canli</a><a href="/hedef">Hedef</a><a href="/bildirim">Bildirim</a>
 </div>
 <h2>Sektor Performansi</h2>
@@ -760,7 +801,7 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 <div class="header"><div><h1>BIST AI</h1><small>SİZİN İÇİN ÇALIŞIYORUZ</small></div><p>{{ tarih }}</p></div>
 <div class="menu">
 <a href="/">Portfoy</a><a href="/panel">Panel</a><a href="/sektor">Sektor</a>
-<a href="/risk" class="active">Risk</a><a href="/ai">AI</a><a href="/sinyal">Sinyal</a>
+<a href="/risk" class="active">Risk</a><a href="/ai">AI</a><a href="/istihbarat">Istihbarat</a><a href="/sinyal">Sinyal</a>
 <a href="/canli">Canli</a><a href="/hedef">Hedef</a><a href="/bildirim">Bildirim</a>
 <a href="/cikis" class="cikis">Cikis</a>
 </div>
@@ -855,6 +896,28 @@ Sharpe: {{ h.sharpe }} | Max DD: %{{ h.max_drawdown }} | Vol: %{{ h.volatilite }
 </div>
 </div></body></html>
 """
+
+HTML_ISTIHBARAT = """
+<!DOCTYPE html>
+<html><head><title>BIST AI - Hisse Istihbarati</title><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}.container{max-width:900px;margin:auto}
+.header{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 16px;background:linear-gradient(135deg,#16213e,#0f3460);border-radius:8px;margin-bottom:15px;position:sticky;top:10px;z-index:10}.header h1{margin:0;color:#e94560;font-size:20px}.header p{margin:0;color:#dfeaff;font-size:12px;text-align:right;white-space:nowrap}.header small{display:block;color:#b0bec5;font-size:10px;margin-top:3px;letter-spacing:.08em}
+.menu{display:flex;gap:8px;margin:15px 0;flex-wrap:wrap}.menu a{flex:1;min-width:80px;padding:8px;background:#0f3460;color:white;text-decoration:none;border-radius:5px;text-align:center;font-size:13px}.menu a.active{background:#e94560}
+.form{display:grid;grid-template-columns:1fr auto;gap:10px;background:#16213e;padding:15px;border-radius:8px}.form input{padding:11px;border:0;border-radius:5px;background:#0f3460;color:white}.btn{padding:11px 18px;background:#e94560;color:white;border:0;border-radius:5px;cursor:pointer;font-weight:bold}.hero,.card{background:#16213e;padding:18px;border-radius:8px;margin:15px 0}.hero{border-left:5px solid #4caf50}.score{font-size:48px;font-weight:bold;color:#4caf50}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.metric{background:#0f3460;padding:12px;border-radius:6px}.metric b{display:block;font-size:20px;margin-top:5px}.muted{color:#b0bec5;font-size:12px}.news{margin:6px 0;padding:8px;background:#0f3460;border-radius:4px;font-size:13px}@media(max-width:600px){.form,.grid{grid-template-columns:1fr}}
+</style></head><body><div class="container">
+<div class="header"><div><h1>BIST AI</h1><small>SİZİN İÇİN ÇALIŞIYORUZ</small></div><p>{{ tarih }}</p></div>
+<div class="menu"><a href="/">Portfoy</a><a href="/panel">Panel</a><a href="/sektor">Sektor</a><a href="/risk">Risk</a><a href="/ai">AI</a><a href="/istihbarat" class="active">Istihbarat</a><a href="/hedef">Hedef</a><a href="/cikis">Cikis</a></div>
+<form class="form" method="GET"><input name="sembol" value="{{ sorgu }}" placeholder="Hisse sembolü (örn: THYAO)" required><button class="btn" type="submit">Analiz Et</button></form>
+{% if analiz %}{% if analiz.durum == 'YETERLI VERI YOK' %}<div class="card">{{ analiz.sembol }} için yeterli fiyat verisi alınamadı.</div>{% else %}
+<div class="hero"><div class="muted">{{ analiz.sembol }} Birleşik Analiz</div><div class="score">{{ analiz.skor }}/10</div><b>{{ analiz.durum }}</b><div class="muted">Veri güveni: %{{ analiz.veri_guveni }} | {{ analiz.tarih }}</div></div>
+<div class="grid"><div class="metric"><span>Fiyat</span><b>{{ analiz.teknik.fiyat }} TL</b><small class="muted">EMA21: {{ analiz.teknik.ema21 }}</small></div><div class="metric"><span>RSI (14)</span><b>{{ analiz.teknik.rsi }}</b><small class="muted">MACD: {{ analiz.teknik.macd }}</small></div><div class="metric"><span>Hacim</span><b>{% if analiz.teknik.hacim_orani %}{{ analiz.teknik.hacim_orani }}x{% else %}VERI YOK{% endif %}</b><small class="muted">Yıllık volatilite: %{{ analiz.teknik.volatilite }}</small></div></div>
+<div class="card"><h3>Haber ve KAP</h3><p class="muted">{{ analiz.haber.kaynak }} | {{ analiz.haber.adet }} başlık | Net sinyal: {{ analiz.haber.net_sinyal }}</p>{% for baslik in analiz.haber.basliklar %}<div class="news">{{ baslik }}</div>{% else %}<p class="muted">Haber bulunamadı.</p>{% endfor %}</div>
+<div class="card"><h3>Kurum Verisi</h3><p>{{ analiz.kurum.durum }}</p><p class="muted">{{ analiz.kurum.kaynak }}</p><p class="muted">Takas ve kademe verisi lisanslı/API kaynağı olmadan hesaba katılmadı.</p></div>
+{% endif %}{% else %}<div class="card">Analiz için bir hisse sembolü girin.</div>{% endif %}
+</div></body></html>
+"""
+
 
 HTML_AI = """
 <!DOCTYPE html>
@@ -962,7 +1025,7 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 <div class="header"><div><h1>BIST AI</h1><small>SİZİN İÇİN ÇALIŞIYORUZ</small></div><p>{{ tarih }} | {{ toplam_sinyal }} aktif</p></div>
 <div class="menu">
 <a href="/">Portfoy</a><a href="/panel">Panel</a><a href="/sektor">Sektor</a>
-<a href="/risk">Risk</a><a href="/ai">AI</a><a href="/sinyal" class="active">Sinyal</a>
+<a href="/risk">Risk</a><a href="/ai">AI</a><a href="/istihbarat">Istihbarat</a><a href="/sinyal" class="active">Sinyal</a>
 <a href="/canli">Canli</a><a href="/hedef">Hedef</a><a href="/bildirim">Bildirim</a>
 </div>
 {% if sinyaller %}
@@ -1019,7 +1082,7 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 <div class="header"><div><h1>BIST AI</h1><small>SİZİN İÇİN ÇALIŞIYORUZ</small></div><p>{{ tarih }}</p></div>
 <div class="menu">
 <a href="/">Portfoy</a><a href="/panel" class="active">Panel</a><a href="/sektor">Sektor</a>
-<a href="/risk">Risk</a><a href="/ai">AI</a><a href="/sinyal">Sinyal</a>
+<a href="/risk">Risk</a><a href="/ai">AI</a><a href="/istihbarat">Istihbarat</a><a href="/sinyal">Sinyal</a>
 <a href="/canli">Canli</a><a href="/hedef">Hedef</a><a href="/bildirim">Bildirim</a>
 </div>
 <a href="/panel" class="yenile-btn">Yenile</a>
@@ -1087,7 +1150,7 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 <div class="header"><div><h1>BIST AI</h1><small>SİZİN İÇİN ÇALIŞIYORUZ</small></div><p>{{ tarih }}</p></div>
 <div class="menu">
 <a href="/">Portfoy</a><a href="/panel">Panel</a><a href="/sektor">Sektor</a>
-<a href="/risk">Risk</a><a href="/ai">AI</a><a href="/sinyal">Sinyal</a>
+<a href="/risk">Risk</a><a href="/ai">AI</a><a href="/istihbarat">Istihbarat</a><a href="/sinyal">Sinyal</a>
 <a href="/canli" class="active">Canli</a><a href="/cikis" class="cikis">Cikis</a>
 <a href="/hedef">Hedef</a><a href="/bildirim">Bildirim</a>
 </div>
@@ -1151,7 +1214,7 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 <div class="header"><div><h1>BIST AI</h1><small>SİZİN İÇİN ÇALIŞIYORUZ</small></div><p>{{ tarih }}</p></div>
 <div class="menu">
 <a href="/">Portfoy</a><a href="/panel">Panel</a><a href="/sektor">Sektor</a>
-<a href="/risk">Risk</a><a href="/ai">AI</a><a href="/sinyal">Sinyal</a>
+<a href="/risk">Risk</a><a href="/ai">AI</a><a href="/istihbarat">Istihbarat</a><a href="/sinyal">Sinyal</a>
 <a href="/canli">Canli</a><a href="/hedef" class="active">Hedef</a><a href="/bildirim">Bildirim</a>
 <a href="/cikis" class="cikis">Cikis</a>
 </div>
@@ -1232,7 +1295,7 @@ select{background:#0f3460;color:white;border:none;padding:8px 12px;border-radius
 <div class="header"><div><h1>BIST AI</h1><small>SİZİN İÇİN ÇALIŞIYORUZ</small></div><p>{{ tarih }}</p></div>
 <div class="menu">
 <a href="/">Portfoy</a><a href="/panel">Panel</a><a href="/sektor">Sektor</a>
-<a href="/risk">Risk</a><a href="/ai">AI</a><a href="/sinyal">Sinyal</a>
+<a href="/risk">Risk</a><a href="/ai">AI</a><a href="/istihbarat">Istihbarat</a><a href="/sinyal">Sinyal</a>
 <a href="/canli">Canli</a><a href="/hedef">Hedef</a>
 <a href="/bildirim" class="active">Bildirim</a><a href="/cikis" class="cikis">Cikis</a>
 </div>
@@ -1434,16 +1497,37 @@ def performans():
     if not kullanici:
         return redirect(url_for("giris"))
     portfoy = kullanici_yoneticisi.portfoy_al(kullanici)
+    donem = request.args.get("donem", "3mo")
+    if donem not in {"1mo", "3mo", "6mo", "1y"}:
+        donem = "3mo"
     toplam = sum(float(h.get("adet", 0)) * float(h.get("alis_fiyati", 0)) for h in portfoy)
-    noktalar = "0,80 100,80"
-    if toplam:
-        noktalar = "0,80 100,20" if len(portfoy) > 1 else "0,60 100,45"
+    seri_listesi = []
+    for hisse in portfoy:
+        try:
+            fiyatlar = cacheli_gecmis(f"{hisse['sembol']}.IS", period=donem, auto_adjust=True)["Close"].dropna().astype(float)
+            if len(fiyatlar) > 1 and float(fiyatlar.iloc[0]) > 0:
+                agirlik = (float(hisse.get("adet", 0)) * float(hisse.get("alis_fiyati", 0))) / toplam if toplam else 0
+                seri_listesi.append((fiyatlar / float(fiyatlar.iloc[0]) * agirlik, fiyatlar))
+        except Exception:
+            continue
+    if seri_listesi:
+        uzunluk = min(len(seri) for seri, _ in seri_listesi)
+        performans_serisi = sum((seri.tail(uzunluk) for seri, _ in seri_listesi))
+        performans_serisi = performans_serisi / float(performans_serisi.iloc[0]) * 100
+        minimum, maksimum = float(performans_serisi.min()), float(performans_serisi.max())
+        aralik = max(0.01, maksimum - minimum)
+        noktalar = " ".join(f"{round(i * 100 / max(1, len(performans_serisi) - 1), 1)},{round(100 - (float(deger) - minimum) * 90 / aralik, 1)}" for i, deger in enumerate(performans_serisi))
+        son_performans = round(float(performans_serisi.iloc[-1]) - 100, 2)
+    else:
+        noktalar, son_performans = "0,50 100,50", 0.0
+    mevcut_deger = round(sum(float(h.get("adet", 0)) * float(h.get("alis_fiyati", 0)) for h in portfoy), 2)
     return render_template_string("""
-    <h1>Portföy Performansı</h1><p>Başlangıç maliyeti: {{ toplam|round(2) }} TL</p>
+    <h1>Portföy Performansı</h1><p>Başlangıç maliyeti: {{ toplam|round(2) }} TL | Dönem getirisi: {{ son_performans }}%</p>
+    <p><a href="/performans?donem=1mo">1 Ay</a> | <a href="/performans?donem=3mo">3 Ay</a> | <a href="/performans?donem=6mo">6 Ay</a> | <a href="/performans?donem=1y">1 Yıl</a></p>
     <svg viewBox="0 0 100 100" width="100%" height="240" style="background:#16213e"><polyline points="{{ noktalar }}" fill="none" stroke="#4caf50" stroke-width="2" /></svg>
-    <p>Performans grafiği portföy işlem geçmişi ve güncel piyasa verileriyle genişletilebilir.</p>
+    <p>Grafik, seçilen dönemdeki portföy hisselerinin ağırlıklı normalize getirisini gösterir.</p>
     <a href="/">Portföye dön</a>
-    """, toplam=toplam, noktalar=noktalar)
+    """, toplam=toplam, noktalar=noktalar, son_performans=son_performans, mevcut_deger=mevcut_deger)
 
 
 @app.route("/admin")
@@ -1634,6 +1718,21 @@ def ai_tahmin_sayfasi():
             HTML_AI,
             sonuclar=[], yarin_tahminleri=[], bugun_yukselenler=[]
         )
+
+
+@app.route("/istihbarat")
+def istihbarat_sayfasi():
+    kullanici = aktif_kullanici_al()
+    if not kullanici:
+        return redirect(url_for("giris"))
+    sorgu = (request.args.get("sembol", "") or "").upper().replace(".IS", "")
+    analiz = hisse_istihbarat_analizi(sorgu) if sorgu else None
+    return render_template_string(
+        HTML_ISTIHBARAT,
+        analiz=analiz,
+        sorgu=sorgu,
+        tarih=datetime.now().strftime("%d.%m.%Y %H:%M"),
+    )
 
 
 @app.route("/sinyal")
