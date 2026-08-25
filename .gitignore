@@ -4,3 +4,7 @@ islemler.json
 stop_loss.json
 *.json
 .env
+users.db
+*.pyc
+__pycache__/
+reports/
