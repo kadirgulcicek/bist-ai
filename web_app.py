@@ -111,6 +111,15 @@ def risk_seviyesi_hesapla(puan):
     return "YUKSEK"
 
 
+def teknik_skor_renk_hesapla(puan):
+    """10 uzerinden teknik skoru yesil-sari-kirmizi renklendirir."""
+    if puan >= 7:
+        return "#4caf50"
+    if puan >= 4:
+        return "#ff9800"
+    return "#f44336"
+
+
 def risk_yorum_uret(puan):
     """Risk puani icin kullanici odakli yorum."""
     if puan >= 80:
@@ -569,7 +578,7 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 {% if tek_hisse_analizi %}
 <div class="section">
 <h3>{{ tek_hisse_analizi.sembol }} Teknik Risk Skoru</h3>
-<div class="puan-sayi" style="color:{{ risk_renk }}">{{ tek_hisse_analizi.ortalama }}/10</div>
+<div class="puan-sayi" style="color:{{ tek_hisse_renk }}">{{ tek_hisse_analizi.ortalama }}/10</div>
 <div class="metrik-grid">
 <div class="metrik-kutu"><div class="metrik-baslik">Momentum & Trend: MACD (12, 26, 9)</div><div class="metrik-deger">{{ tek_hisse_analizi.macd }}/10</div><div class="metrik-sub">Trendin yönünü ve gücünü gösterir. MACD: {{ tek_hisse_analizi.macd_deger }}</div></div>
 <div class="metrik-kutu"><div class="metrik-baslik">Göreceli Güç: RSI (14)</div><div class="metrik-deger">{{ tek_hisse_analizi.rsi }}/10</div><div class="metrik-sub">70+ aşırı alım, 30- aşırı satım. RSI: {{ tek_hisse_analizi.rsi_deger }}</div></div>
@@ -599,7 +608,7 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 </div>
 
 <div class="section">
-<h3>Portföy Metrikleri</h3>
+<h3>Portföy Risk Metrikleri</h3>
 <div class="metrik-grid">
 <div class="metrik-kutu"><div class="metrik-baslik">Volatilite</div><div class="metrik-deger">%{{ portfoy_volatilite }}</div><div class="metrik-sub">Yıllık oynaklık</div></div>
 <div class="metrik-kutu"><div class="metrik-baslik">VaR (95%)</div><div class="metrik-deger">%{{ portfoy_var }}</div><div class="metrik-sub">Günlük maksimum kayıp</div></div>
@@ -609,7 +618,7 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 
 {% if hisse_verileri %}
 <div class="section">
-<h3>Hisse Bazlı Risk</h3>
+<h3>Portföyde Hisse Bazlı Risk</h3>
 <div class="hisse-list">
 {% for h in hisse_verileri %}
 <div class="hisse-item">
@@ -1168,6 +1177,7 @@ def risk():
 
         sembol = (request.args.get("sembol", "") or "").upper().replace(".IS", "")
         tek_hisse_analizi = tek_hisse_teknik_risk_hesapla(sembol) if sembol else None
+        tek_hisse_renk = teknik_skor_renk_hesapla(tek_hisse_analizi["ortalama"]) if tek_hisse_analizi else "#607d8b"
         portfoy_hisseler = kullanici_yoneticisi.portfoy_al(kullanici)
         if not portfoy_hisseler:
             return render_template_string(
@@ -1182,6 +1192,7 @@ def risk():
                 puan_yorum="Portfoye hisse ekleyin.",
                 hisse_verileri=[], korelasyonlar=[], oneriler=[],
                 tek_hisse_analizi=tek_hisse_analizi,
+                tek_hisse_renk=tek_hisse_renk,
                 sorgulanan_sembol=sembol
             )
     except Exception:
@@ -1209,6 +1220,7 @@ def risk():
             puan=puan,
             puan_yorum=puan_yorum,
             tek_hisse_analizi=tek_hisse_analizi,
+            tek_hisse_renk=tek_hisse_renk,
             sorgulanan_sembol=sembol,
         )
     except Exception as e:
