@@ -34,7 +34,8 @@ class KullaniciYoneticisi:
         try:
             if db_tipi == 'postgres':
                 conn.autocommit = True
-                conn.cursor().execute("""
+                cursor = conn.cursor()
+                cursor.execute("""
                     CREATE TABLE IF NOT EXISTS kullanicilar (
                         kullanici_adi VARCHAR(100) PRIMARY KEY,
                         sifre_hash TEXT NOT NULL,
@@ -43,14 +44,14 @@ class KullaniciYoneticisi:
                         portfoy TEXT NOT NULL DEFAULT '[]'
                     )
                 """)
-                conn.cursor().execute("""
+                cursor.execute("""
                     CREATE TABLE IF NOT EXISTS oturumlar (
                         token TEXT PRIMARY KEY,
                         kullanici_adi TEXT NOT NULL,
-                        son_kullanma TEXT NOT NULL
+                        son_kullanma TEXT
                     )
                 """)
-                conn.cursor().execute("""
+                cursor.execute("""
                     CREATE TABLE IF NOT EXISTS islemler (
                         id SERIAL PRIMARY KEY,
                         kullanici_adi TEXT NOT NULL,
@@ -61,6 +62,16 @@ class KullaniciYoneticisi:
                         tarih TEXT NOT NULL
                     )
                 """)
+                cursor.execute("""
+                    SELECT column_name FROM information_schema.columns
+                    WHERE table_name = 'oturumlar' AND column_name = 'son_kullanma'
+                """)
+                if cursor.fetchone() is None:
+                    cursor.execute("ALTER TABLE oturumlar ADD COLUMN son_kullanma TEXT")
+                cursor.execute(
+                    "UPDATE oturumlar SET son_kullanma = %s WHERE son_kullanma IS NULL",
+                    ((datetime.now() + timedelta(days=30)).isoformat(),),
+                )
             else:
                 cursor = conn.cursor()
                 cursor.execute("""
