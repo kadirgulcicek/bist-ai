@@ -948,7 +948,7 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 </div>
 </div>
 {% endfor %}
-{% else %}<div class="info-box"><p>Tahminler yuklenemedi.</p></div>{% endif %}
+{% else %}<div class="info-box"><p>Bu hisseler için yeterli piyasa verisi bulunamadı. Sembol veya veri kaynağını kontrol edip tekrar deneyin.</p></div>{% endif %}
 </div></body></html>
 """
 
@@ -1358,6 +1358,24 @@ def hedef_sayfasi():
         hedefler = []
         for sembol in semboller[:10]:
             tahmin = hedef_fiyat_tahmin(sembol)
+            if not tahmin:
+                tahminler = basit_ai_tahmini(sembol, gun_sayisi=5)
+                if tahminler and len(tahminler) >= 2 and tahminler[0] > 0:
+                    guncel = round(float(tahminler[0]), 2)
+                    hedef = round(float(tahminler[-1]), 2)
+                    degisim = round((hedef - guncel) / guncel * 100, 2)
+                    tahmin = {
+                        "sembol": sembol,
+                        "guncel": guncel,
+                        "hedef": hedef,
+                        "degisim": degisim,
+                        "guven_alt": round(guncel * 0.95, 2),
+                        "guven_ust": round(guncel * 1.05, 2),
+                        "zaman_gun": 5,
+                        "trend": "YUKARI" if degisim > 0 else "ASAGI" if degisim < 0 else "YATAY",
+                        "risk": "ORTA",
+                        "volatilite": 0.0,
+                    }
             if tahmin:
                 hedefler.append(tahmin)
         hedefler.sort(key=lambda x: x["degisim"], reverse=True)
