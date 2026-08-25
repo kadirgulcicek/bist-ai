@@ -10,3 +10,6 @@ scikit-learn
 numpy
 joblib
 psycopg2-binary
+python-dotenv
+feedparser
+transformers
