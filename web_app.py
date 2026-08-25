@@ -270,22 +270,49 @@ HTML_RISK = """
 <head><title>BIST AI - Risk</title><meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
-.container{max-width:800px;margin:auto}
-.header{text-align:center;padding:20px;background:linear-gradient(135deg,#16213e,#0f3460);border-radius:10px;margin-bottom:15px}
-.header h1{margin:0;color:#e94560;font-size:22px}
+.container{max-width:900px;margin:auto}
+.header{text-align:center;padding:22px 18px;background:linear-gradient(135deg,#16213e,#0f3460);border-radius:12px;margin-bottom:16px;box-shadow:0 12px 28px rgba(0,0,0,.22)}
+.header h1{margin:0;color:#e94560;font-size:24px}
+.header p{margin:8px 0 0;color:#cfe2ff;font-size:13px}
 .menu{display:flex;gap:8px;margin:15px 0;flex-wrap:wrap}
-.menu a{flex:1;min-width:80px;padding:8px;background:#0f3460;color:white;text-decoration:none;border-radius:5px;text-align:center;font-size:13px}
+.menu a{flex:1;min-width:80px;padding:9px;background:#0f3460;color:white;text-decoration:none;border-radius:7px;text-align:center;font-size:12px;font-weight:600}
 .menu a.active{background:#e94560}.menu a.cikis{background:#f44336}
-.puan-kutu{background:#16213e;padding:30px;border-radius:10px;text-align:center;margin-bottom:20px}
-.puan-sayi{font-size:60px;font-weight:bold}
-.puan-yorum{font-size:16px;margin-top:10px}
-.section{background:#16213e;padding:15px;border-radius:8px;margin-bottom:15px}
-.section h3{margin-top:0;color:#e94560}
-.metrik-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px}
-.metrik-kutu{background:#16213e;padding:12px;border-radius:8px;text-align:center;border:1px solid #0f3460}
-.metrik-baslik{font-size:11px;color:#b0bec5;text-transform:uppercase}
-.metrik-deger{font-size:18px;font-weight:bold;margin-top:5px}
-.uyari{background:#5c1f1f;padding:10px;border-radius:5px;margin:5px 0;font-size:14px}
+.risk-hero{background:linear-gradient(135deg,#0f3460,#1a2749);padding:24px;border-radius:14px;margin-bottom:18px;border:1px solid rgba(255,255,255,.06);box-shadow:0 12px 28px rgba(0,0,0,.22)}
+.risk-header-row{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.badge{padding:8px 14px;border-radius:999px;background:rgba(255,255,255,.08);font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#dfeaff}
+.puan-sayi{font-size:56px;font-weight:800;line-height:1;color:#ffffff;margin-top:10px}
+.puan-yorum{font-size:16px;font-weight:700;color:#dfeaff;margin-top:12px}
+.summary-grid{display:grid;grid-template-columns:repeat(4, minmax(0, 1fr));gap:12px;margin:18px 0}
+.summary-card{background:#16213e;border:1px solid rgba(233,69,96,.22);border-radius:12px;padding:16px;min-height:110px}
+.summary-card .label{font-size:11px;color:#b0bec5;text-transform:uppercase;letter-spacing:.08em}
+.summary-card .value{margin-top:8px;font-size:22px;font-weight:800;line-height:1.2}
+.summary-card .sub{margin-top:8px;font-size:12px;color:#cfe2ff}
+.section{background:#16213e;padding:18px;border-radius:12px;margin-bottom:18px;border:1px solid rgba(255,255,255,.06)}
+.section h3{margin:0 0 12px;color:#e94560;font-size:18px}
+.metrik-grid{display:grid;grid-template-columns:repeat(3, minmax(0, 1fr));gap:12px;margin-top:14px}
+.metrik-kutu{background:#0f3460;padding:16px;border-radius:10px;border:1px solid rgba(255,255,255,.06)}
+.metrik-baslik{font-size:11px;color:#b0bec5;text-transform:uppercase;letter-spacing:.08em}
+.metrik-deger{font-size:20px;font-weight:800;margin-top:8px}
+.metrik-sub{font-size:12px;color:#dfeaff;margin-top:4px}
+.alert{padding:14px 16px;border-radius:10px;margin:10px 0;border-left:4px solid #e94560;background:rgba(233,69,96,.1);font-size:14px;line-height:1.5}
+.alert.success{border-left-color:#4caf50;background:rgba(76,175,80,.12)}
+.alert.warning{border-left-color:#ff9800;background:rgba(255,152,0,.12)}
+.alert.danger{border-left-color:#f44336;background:rgba(244,67,54,.12)}
+.hisse-list{display:grid;gap:10px}
+.hisse-item{background:#0f3460;padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,.06)}
+.hisse-top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px}
+.hisse-simge{font-weight:800;font-size:16px}
+.hisse-risk{padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.08);font-size:12px;font-weight:700}
+.hisse-meta{font-size:12px;color:#cfe2ff;line-height:1.6}
+.korelasyon-list{display:grid;gap:10px}
+.korelasyon-item{background:#0f3460;padding:12px;border-radius:10px;border-left:4px solid #ff9800}
+.korelasyon-item strong{color:#fff}
+.oneri-panel{display:grid;gap:10px}
+.oneri-item{padding:14px 16px;border-radius:10px;background:rgba(15,52,96,.8);border-left:4px solid #e94560;font-size:14px;line-height:1.5}
+.oneri-item:nth-child(odd){border-left-color:#4caf50}
+.oneri-item:nth-child(even){border-left-color:#ff9800}
+@media (max-width: 700px){.summary-grid,.metrik-grid{grid-template-columns:1fr 1fr}.}
+@media (max-width: 520px){.summary-grid,.metrik-grid{grid-template-columns:1fr}. .menu a{min-width:calc(50% - 8px)} }
 </style></head>
 <body>
 <div class="container">
@@ -297,53 +324,69 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 <a href="/cikis" class="cikis">Cikis</a>
 </div>
 
-<div class="puan-kutu">
+<div class="risk-hero">
+<div class="risk-header-row">
+<div class="badge">Portfoy Risk</div>
+<div class="badge" style="color:{{ risk_renk }};border:1px solid {{ risk_renk }};background:rgba(255,255,255,.04)">{{ risk_seviye }}</div>
+</div>
 <div class="puan-sayi" style="color:{{ risk_renk }}">{{ genel_risk }}/100</div>
-<div class="puan-yorum">{{ risk_seviye }} RISK</div>
+<div class="puan-yorum">{{ puan_yorum }}</div>
 </div>
 
-<h2>Portfoy Metrikleri</h2>
-<div class="metrik-grid">
-<div class="metrik-kutu"><div class="metrik-baslik">Toplam Deger</div><div class="metrik-deger">{{ toplam_deger }} TL</div></div>
-<div class="metrik-kutu"><div class="metrik-baslik">Kar/Zarar</div><div class="metrik-deger">{{ toplam_kar_yuzde }}%</div></div>
-<div class="metrik-kutu"><div class="metrik-baslik">Sharpe Ratio</div><div class="metrik-deger">{{ portfoy_sharpe }}</div></div>
-<div class="metrik-kutu"><div class="metrik-baslik">Volatilite</div><div class="metrik-deger">%{{ portfoy_volatilite }}</div></div>
-<div class="metrik-kutu"><div class="metrik-baslik">VaR (95%)</div><div class="metrik-deger">%{{ portfoy_var }}</div></div>
-<div class="metrik-kutu"><div class="metrik-baslik">Beta</div><div class="metrik-deger">{{ portfoy_beta }}</div></div>
+<div class="summary-grid">
+<div class="summary-card"><div class="label">Toplam Değer</div><div class="value">{{ toplam_deger }} TL</div><div class="sub">Maliyet: {{ toplam_maliyet }} TL</div></div>
+<div class="summary-card"><div class="label">Kar/Zarar</div><div class="value" style="color:{% if toplam_kar_yuzde >= 0 %}#4caf50{% else %}#f44336{% endif %}">{{ toplam_kar_yuzde }}%</div><div class="sub">{{ toplam_kar }} TL</div></div>
+<div class="summary-card"><div class="label">Cesitlendirme</div><div class="value">{{ cesitlendirme }}/100</div><div class="sub">Dengeli dağılım</div></div>
+<div class="summary-card"><div class="label">Sharpe</div><div class="value">{{ portfoy_sharpe }}</div><div class="sub">Risk/getiri oranı</div></div>
 </div>
 
 <div class="section">
-<h3>Cesitlendirme Puani: {{ cesitlendirme }}/100</h3>
-<p>{{ puan_yorum }}</p>
+<h3>Portföy Metrikleri</h3>
+<div class="metrik-grid">
+<div class="metrik-kutu"><div class="metrik-baslik">Volatilite</div><div class="metrik-deger">%{{ portfoy_volatilite }}</div><div class="metrik-sub">Yıllık oynaklık</div></div>
+<div class="metrik-kutu"><div class="metrik-baslik">VaR (95%)</div><div class="metrik-deger">%{{ portfoy_var }}</div><div class="metrik-sub">Günlük maksimum kayıp</div></div>
+<div class="metrik-kutu"><div class="metrik-baslik">Beta</div><div class="metrik-deger">{{ portfoy_beta }}</div><div class="metrik-sub">Piyasa duyarlılığı</div></div>
+</div>
 </div>
 
 {% if hisse_verileri %}
 <div class="section">
-<h3>Hisse Bazli Risk Detayi</h3>
+<h3>Hisse Bazlı Risk</h3>
+<div class="hisse-list">
 {% for h in hisse_verileri %}
-<div class="uyari">
-<b>{{ h.sembol }} ({{ h.agirlik }}%)</b> - Risk: {{ h.risk_skor }}/10<br>
-<small>Sharpe: {{ h.sharpe }} | Max DD: %{{ h.max_drawdown }} | Vol: %{{ h.volatilite }} | Beta: {{ h.beta }}</small><br>
-<small>Kar/Zarar: {{ h.kar_yuzde }}% ({{ h.kar }} TL)</small>
+<div class="hisse-item">
+<div class="hisse-top">
+<div class="hisse-simge">{{ h.sembol }}</div>
+<div class="hisse-risk" style="color:{% if h.risk_skor >= 7 %}#ffb3b3{% elif h.risk_skor >= 4 %}#ffd666{% else %}#b9f2c5{% endif %}">{{ h.risk_skor }}/10</div>
+</div>
+<div class="hisse-meta">
+Ağırlık: {{ h.agirlik }}% | Kar/Zarar: {{ h.kar_yuzde }}% | Fiyat: {{ h.guncel }} TL<br>
+Sharpe: {{ h.sharpe }} | Max DD: %{{ h.max_drawdown }} | Vol: %{{ h.volatilite }} | Beta: {{ h.beta }}
+</div>
 </div>
 {% endfor %}
+</div>
 </div>
 {% endif %}
 
 {% if korelasyonlar %}
 <div class="section">
-<h3>Yuksek Korelasyonlu Hisseler</h3>
+<h3>Yüksek Korelasyon</h3>
+<div class="korelasyon-list">
 {% for k in korelasyonlar %}
-<div class="uyari">{{ k.hisse1 }} - {{ k.hisse2 }}: {{ k.korelasyon }} ({{ k.tip }})</div>
+<div class="korelasyon-item"><strong>{{ k.hisse1 }}</strong> - <strong>{{ k.hisse2 }}</strong><br><span>{{ k.korelasyon }} korelasyon ({{ k.tip }})</span></div>
 {% endfor %}
+</div>
 </div>
 {% endif %}
 
 <div class="section">
-<h3>Oneriler</h3>
+<h3>Öneriler</h3>
+<div class="oneri-panel">
 {% for o in oneriler %}
-<div class="uyari">{{ o }}</div>
+<div class="oneri-item">{{ o }}</div>
 {% endfor %}
+</div>
 </div>
 </div></body></html>
 """
