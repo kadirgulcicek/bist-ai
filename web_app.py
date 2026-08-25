@@ -47,6 +47,37 @@ def aktif_kullanici_al():
     return None
 
 
+def risk_renk_hesapla(puan):
+    """Risk puanina gore otomatik renk skalasi."""
+    if puan < 30:
+        return "#4caf50"
+    elif puan < 60:
+        return "#ff9800"
+    return "#f44336"
+
+
+def risk_seviyesi_hesapla(puan):
+    """Risk puanina gore etiket."""
+    if puan < 30:
+        return "DUSUK"
+    elif puan < 60:
+        return "ORTA"
+    return "YUKSEK"
+
+
+def risk_yorum_uret(puan):
+    """Risk puani icin kullanici odakli yorum."""
+    if puan >= 80:
+        return "Mukemmel! Portfoy cok iyi cesitlendirilmis."
+    elif puan >= 60:
+        return "Iyi. Cesitlendirme yeterli."
+    elif puan >= 40:
+        return "Orta. Cesitlendirme artirilabilir."
+    elif puan >= 20:
+        return "Zayif. Risk var!"
+    return "Cok tehlikeli!"
+
+
 def portfoy_veri_hazirla_icin(hisseler_listesi):
     hisseler = []
     toplam_maliyet = 0
@@ -194,8 +225,25 @@ input{width:100%;padding:10px;margin:5px 0;border:none;border-radius:5px;backgro
 <div class="stat-card"><div>Deger</div><div class="stat-value">{{ toplam_deger }} TL</div></div>
 <div class="stat-card"><div>Maliyet</div><div class="stat-value">{{ toplam_maliyet }} TL</div></div>
 <div class="stat-card"><div>Kar/Zarar</div><div class="stat-value {{ kar_renk }}">{{ toplam_kar }} TL</div></div>
-<div class="stat-card"><div>Hisse</div><div class="stat-value">{{ hisse_sayisi }}</div></div>
+<div class="stat-card"><div>Risk</div><div class="stat-value" style="color:{% if risk_ozeti %}{{ risk_ozeti.risk_renk }}{% else %}#b0bec5{% endif %}">{% if risk_ozeti %}{{ risk_ozeti.genel_risk }}{% else %}0{% endif %}/100</div></div>
 </div>
+
+{% if risk_ozeti %}
+<div style="background:#16213e;padding:16px;border-radius:10px;margin:15px 0;border-left:4px solid {{ risk_ozeti.risk_renk }};">
+<b style="color:{{ risk_ozeti.risk_renk }}">{{ risk_ozeti.risk_seviye }} RISK</b>
+<div style="margin-top:8px;font-size:14px;color:#dfeaff">Cesitlendirme: {{ risk_ozeti.cesitlendirme }}/100</div>
+<div style="margin-top:6px;font-size:13px;color:#b0bec5">{{ risk_ozeti.puan_yorum }}</div>
+</div>
+{% endif %}
+
+<h2>Tek Hisse Risk Sorgula</h2>
+<form method="POST" action="/risk-sorgula" style="margin-bottom:20px;">
+<input name="sembol" placeholder="Hisse (orn: THYAO)" required>
+<input name="adet" type="number" min="1" placeholder="Adet" required>
+<input name="fiyat" type="number" step="0.01" min="0.01" placeholder="Alis fiyatı" required>
+<button class="btn" type="submit">Risk Sorgula</button>
+</form>
+
 <h2>Hisseler</h2>
 {% if hisseler %}
 <table>
@@ -781,7 +829,12 @@ def index():
         return redirect(url_for("giris"))
     portfoy_hisseler = kullanici_yoneticisi.portfoy_al(kullanici)
     veri = portfoy_veri_hazirla_icin(portfoy_hisseler)
-    return render_template_string(HTML_PORTFOY, **veri, kullanici=kullanici)
+    risk_ozeti = portfoy_risk_hesapla(portfoy_hisseler) if portfoy_hisseler else None
+    if risk_ozeti:
+        risk_ozeti["risk_renk"] = risk_renk_hesapla(risk_ozeti.get("genel_risk", 0))
+        risk_ozeti["risk_seviye"] = risk_seviyesi_hesapla(risk_ozeti.get("genel_risk", 0))
+        risk_ozeti["puan_yorum"] = risk_yorum_uret(risk_ozeti.get("cesitlendirme", 0))
+    return render_template_string(HTML_PORTFOY, **veri, kullanici=kullanici, risk_ozeti=risk_ozeti)
 
 
 @app.route("/ekle", methods=["POST"])
@@ -805,6 +858,32 @@ def hisse_ekle():
             portfoy.append({"sembol": sembol, "adet": adet, "alis_fiyati": fiyat})
         kullanici_yoneticisi.portfoy_kaydet(kullanici, portfoy)
         return redirect(url_for("index"))
+    except Exception as e:
+        return f"<h1>Hata</h1><p>{e}</p><a href='/'>Geri don</a>"
+
+
+@app.route("/risk-sorgula", methods=["POST"])
+def risk_sorgula():
+    try:
+        kullanici = aktif_kullanici_al()
+        if not kullanici:
+            return redirect(url_for("giris"))
+
+        sembol = (request.form.get("sembol", "") or "").upper().replace(".IS", "")
+        adet = int(request.form.get("adet", 0) or 0)
+        fiyat = float(request.form.get("fiyat", 0) or 0)
+
+        if not sembol or adet <= 0 or fiyat <= 0:
+            return redirect(url_for("index"))
+
+        sonuc = portfoy_risk_hesapla([{"sembol": sembol, "adet": adet, "alis_fiyati": fiyat}])
+        if not sonuc:
+            return redirect(url_for("index"))
+
+        sonuc["risk_renk"] = risk_renk_hesapla(sonuc.get("genel_risk", 0))
+        sonuc["risk_seviye"] = risk_seviyesi_hesapla(sonuc.get("genel_risk", 0))
+        sonuc["puan_yorum"] = risk_yorum_uret(sonuc.get("cesitlendirme", 0))
+        return render_template_string(HTML_RISK, **sonuc, puan=sonuc["cesitlendirme"], puan_yorum=sonuc["puan_yorum"])
     except Exception as e:
         return f"<h1>Hata</h1><p>{e}</p><a href='/'>Geri don</a>"
 
@@ -885,16 +964,11 @@ def risk():
             return "Risk analizi yapilamadi."
 
         puan = sonuc["cesitlendirme"]
-        if puan >= 80:
-            puan_yorum = "Mukemmel! Portfoy cok iyi cesitlendirilmis."
-        elif puan >= 60:
-            puan_yorum = "Iyi. Cesitlendirme yeterli."
-        elif puan >= 40:
-            puan_yorum = "Orta. Cesitlendirme artirilabilir."
-        elif puan >= 20:
-            puan_yorum = "Zayif. Risk var!"
-        else:
-            puan_yorum = "Cok tehlikeli!"
+        puan_yorum = risk_yorum_uret(puan)
+        if "risk_renk" not in sonuc:
+            sonuc["risk_renk"] = risk_renk_hesapla(sonuc.get("genel_risk", 0))
+        if "risk_seviye" not in sonuc:
+            sonuc["risk_seviye"] = risk_seviyesi_hesapla(sonuc.get("genel_risk", 0))
 
         return render_template_string(
             HTML_RISK,
