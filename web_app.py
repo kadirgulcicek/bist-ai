@@ -32,6 +32,7 @@ except ImportError:
 from ensemble_model import EnsembleTahminci
 from auth import KullaniciYoneticisi
 from piyasa_istihbarati import hisse_istihbarat_analizi
+from halka_arz import halka_arz_ozeti
 
 
 def portfoy_risk_hesapla(portfoy_hisseler):
@@ -101,6 +102,15 @@ def hamburger_menu_ekle(response):
     if not response.content_type or "text/html" not in response.content_type:
         return response
     html = response.get_data(as_text=True)
+    if "/halka-arz" not in html:
+        html = html.replace(
+            '<a href="/istihbarat">Istihbarat</a>',
+            '<a href="/istihbarat">Istihbarat</a><a href="/halka-arz">Halka Arz</a>',
+        )
+        html = html.replace(
+            '<a href="/istihbarat" class="active">Istihbarat</a>',
+            '<a href="/istihbarat" class="active">Istihbarat</a><a href="/halka-arz">Halka Arz</a>',
+        )
     if '<div class="menu">' not in html:
         return response
     stil = """
@@ -924,6 +934,18 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}.con
 """
 
 
+HTML_HALKA_ARZ = """
+<!DOCTYPE html><html><head><title>BIST AI - Halka Arz</title><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}.container{max-width:1000px;margin:auto}.header{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 16px;background:linear-gradient(135deg,#16213e,#0f3460);border-radius:8px;margin-bottom:15px;position:sticky;top:10px;z-index:10}.header h1{margin:0;color:#e94560;font-size:20px}.header p{margin:0;color:#dfeaff;font-size:12px}.header small{display:block;color:#b0bec5;font-size:10px;margin-top:3px;letter-spacing:.08em}.menu{display:flex;gap:8px;margin:15px 0;flex-wrap:wrap}.menu a{flex:1;min-width:80px;padding:8px;background:#0f3460;color:white;text-decoration:none;border-radius:5px;text-align:center;font-size:13px}.menu a.active{background:#e94560}.card{background:#16213e;padding:16px;border-radius:8px;margin:12px 0;border-left:4px solid #ff9800}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.metric{background:#0f3460;padding:12px;border-radius:6px}.metric span{color:#b0bec5;font-size:12px}.metric b{display:block;margin-top:5px;font-size:18px}.muted{color:#b0bec5;font-size:12px}.news{margin-top:10px}.news a{color:#cfe2ff}.takip{border-left-color:#4caf50}.bekliyor{border-left-color:#64b5f6}@media(max-width:650px){.grid{grid-template-columns:1fr 1fr}}
+</style></head><body><div class="container"><div class="header"><div><h1>BIST AI</h1><small>SİZİN İÇİN ÇALIŞIYORUZ</small></div><p>{{ son_guncelleme }}</p></div>
+<div class="menu"><a href="/">Portfoy</a><a href="/panel">Panel</a><a href="/sektor">Sektor</a><a href="/risk">Risk</a><a href="/ai">AI</a><a href="/istihbarat">Istihbarat</a><a href="/halka-arz" class="active">Halka Arz</a><a href="/hedef">Hedef</a></div>
+<div class="card"><h2>Halka Arz Takibi</h2><p class="muted">Son 6 halka arz. KAP ve ücretsiz RSS kaynakları yenilenir; piyasa başlangıcından itibaren 14 gün takip edilir.</p></div>
+{% for h in son_alti %}<div class="card {% if h.durum == '14 GUN TAKIP' %}takip{% elif h.durum == 'BEKLENIYOR' %}bekliyor{% endif %}"><h3>{{ h.sembol }} | {{ h.sirket }}</h3><div class="grid"><div class="metric"><span>Arz fiyatı</span><b>{{ h.arz_fiyati }}</b></div><div class="metric"><span>İskonto</span><b>{{ h.iskonto }}</b></div><div class="metric"><span>Piyasa başlangıcı</span><b>{{ h.piyasa_baslangic }}</b></div><div class="metric"><span>Fiyat değişimi</span><b>{% if h.fiyat_degisim != 'Veri yok' %}{{ h.fiyat_degisim }}%{% else %}Veri yok{% endif %}</b></div></div><p class="muted">İlk işlem: {{ h.ilk_islem_fiyati }} | Güncel: {{ h.guncel_fiyat }} | Durum: {{ h.durum }}{% if h.takip_bitis %} | Takip bitişi: {{ h.takip_bitis }}{% endif %}</p><div class="news"><a href="{{ h.link }}" target="_blank">KAP / haber detayını aç</a></div></div>{% else %}<div class="card"><p>Güncel halka arz duyurusu bulunamadı.</p></div>{% endfor %}
+</div></body></html>
+"""
+
+
 HTML_AI = """
 <!DOCTYPE html>
 <html>
@@ -1738,6 +1760,18 @@ def istihbarat_sayfasi():
         sorgu=sorgu,
         tarih=datetime.now().strftime("%d.%m.%Y %H:%M"),
     )
+
+
+@app.route("/halka-arz")
+def halka_arz_sayfasi():
+    kullanici = aktif_kullanici_al()
+    if not kullanici:
+        return redirect(url_for("giris"))
+    try:
+        sonuc = halka_arz_ozeti()
+    except Exception:
+        sonuc = {"tum": [], "son_alti": [], "takip": [], "beklenen": [], "son_guncelleme": datetime.now().strftime("%d.%m.%Y %H:%M")}
+    return render_template_string(HTML_HALKA_ARZ, **sonuc)
 
 
 @app.route("/sinyal")
