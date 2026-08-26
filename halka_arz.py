@@ -5,12 +5,11 @@ import os
 import re
 import calendar
 import time
+from concurrent.futures import ThreadPoolExecutor
 from html import unescape
 from datetime import datetime, timedelta
 
-import feedparser
 import requests
-import yfinance as yf
 
 DOSYA = "halka_arz_takip.json"
 MANUEL_DOSYA = "manual_ekle.json"
@@ -128,7 +127,7 @@ def _halkarz_detaylarini_oku():
     if time.time() - _halkarz_onbellek["zaman"] < HALKARZ_CACHE_TTL:
         return [dict(kayit) for kayit in _halkarz_onbellek["kayitlar"]]
     try:
-        cevap = requests.get(HALKARZ_URL, headers={"User-Agent": "Mozilla/5.0"}, timeout=HTTP_TIMEOUT)
+        cevap = requests.get(HALKARZ_URL, headers={"User-Agent": "Mozilla/5.0"}, timeout=(3, 5))
         cevap.raise_for_status()
     except requests.RequestException:
         return []
@@ -137,18 +136,17 @@ def _halkarz_detaylarini_oku():
     for adres in re.findall(r'href=["\'](https://halkarz\.com/[^"\']+/)["\']', cevap.text):
         if re.search(r"-a-s/$", adres) and adres not in adresler:
             adresler.append(adres)
-    kayitlar = []
-    for adres in adresler[:8]:
+    def detay_oku(adres):
         try:
-            detay_cevap = requests.get(adres, headers={"User-Agent": "Mozilla/5.0"}, timeout=HTTP_TIMEOUT)
+            detay_cevap = requests.get(adres, headers={"User-Agent": "Mozilla/5.0"}, timeout=(3, 5))
             detay_cevap.raise_for_status()
         except requests.RequestException:
-            continue
+            return None
         html = unescape(detay_cevap.text)
         metin = _metni_temizle(html)
         sembol = _alan_bul(metin, (r"Bist Kodu\s*:\s*([A-Z]{3,6})\b",))
         if not _sembol_temizle(sembol):
-            continue
+            return None
         sirket = _alan_bul(html, (r"<h1[^>]*>\s*(.*?)\s*</h1>",))
         sirket = _metni_temizle(sirket)
         if sirket == "Belirtilmedi":
@@ -161,7 +159,7 @@ def _halkarz_detaylarini_oku():
         ilk_islem = _alan_bul(metin, (r"Bist İlk İşlem Tarihi\s*:\s*([^|]+?20\d{2})",))
         talep_tarihi = _alan_bul(metin, (r"Halka Arz Tarihi\s*:\s*([^|]+?20\d{2})",))
         arz_tarihi = _tarih_bul(talep_tarihi)
-        kayitlar.append({
+        return {
             "id": adres,
             "sirket": _metni_temizle(sirket),
             "sembol": sembol,
@@ -176,7 +174,10 @@ def _halkarz_detaylarini_oku():
             "takip_baslangic": None,
             "takip_bitis": None,
             "durum": "DUYURU",
-        })
+        }
+
+    with ThreadPoolExecutor(max_workers=8) as havuz:
+        kayitlar = [kayit for kayit in havuz.map(detay_oku, adresler[:8]) if kayit]
     _halkarz_onbellek["zaman"] = time.time()
     _halkarz_onbellek["kayitlar"] = kayitlar
     return [dict(kayit) for kayit in kayitlar]
@@ -290,39 +291,17 @@ def _kaynaklari_oku():
 
 def halka_arzlari_guncelle():
     veriler = _yukle()
+    eski_veriler = veriler
     halkarz_kayitlari = _halkarz_detaylarini_oku()
+    if not halkarz_kayitlari:
+        halkarz_kayitlari = [v for v in veriler.values() if v.get("kaynak") == "HalkArz.com"]
+    veriler = {}
     for yeni in halkarz_kayitlari:
-        eslesme_id = yeni["id"]
-        for mevcut_id, mevcut in veriler.items():
-            if _sembol_temizle(mevcut.get("sembol")) == yeni["sembol"]:
-                eslesme_id = mevcut_id
-                break
-        eski = veriler.get(eslesme_id, {})
-        for alan in ("takip_baslangic", "takip_bitis", "durum"):
-            if eski.get(alan):
+        eski = next((v for v in eski_veriler.values() if _sembol_temizle(v.get("sembol")) == yeni["sembol"]), {})
+        for alan in ("takip_baslangic", "takip_bitis", "durum", "ilk_islem_fiyati", "guncel_fiyat", "fiyat_degisim"):
+            if eski.get(alan) is not None:
                 yeni[alan] = eski[alan]
-        veriler[eslesme_id] = yeni
-    for yeni in _kaynaklari_oku():
-        eslesme_id = yeni["id"]
-        if yeni.get("sembol") and yeni["sembol"] != "Belirtilmedi":
-            for mevcut_id, mevcut in veriler.items():
-                if mevcut.get("sembol") == yeni["sembol"]:
-                    eslesme_id = mevcut_id
-                    break
-        eski = veriler.get(eslesme_id, {})
-        yeni.update({k: eski.get(k) for k in ("takip_baslangic", "takip_bitis", "durum") if eski.get(k)})
-        for alan in ("sirket", "sembol", "arz_fiyati", "iskonto", "talep_tarihi", "borsa_baslangic"):
-            if yeni.get(alan) in (None, "", "Belirtilmedi") and eski.get(alan) not in (None, "", "Belirtilmedi"):
-                yeni[alan] = eski[alan]
-        veriler[eslesme_id] = yeni
-    for yeni in halkarz_kayitlari:
-        for mevcut in veriler.values():
-            if mevcut.get("sembol") == yeni.get("sembol"):
-                for alan in ("sirket", "sembol", "baslik", "kaynak", "arz_fiyati", "iskonto", "talep_tarihi", "borsa_baslangic", "duyuru_tarihi", "link"):
-                    if yeni.get(alan) not in (None, "", "Belirtilmedi"):
-                        mevcut[alan] = yeni[alan]
-                break
-    _manuel_verileri_uygula(veriler)
+        veriler[yeni["id"]] = yeni
     bugun = datetime.now().date()
     for veri in veriler.values():
         tarih = _tarih_bul(f"{veri.get('talep_tarihi', '')} {veri.get('duyuru_tarihi', '')}")
@@ -336,8 +315,6 @@ def halka_arzlari_guncelle():
             veri["durum"] = "14 GUN TAKIP"
         elif tarih and tarih > bugun:
             veri["durum"] = "BEKLENIYOR"
-        if veri.get("kaynak") == "HalkArz.com":
-            _fiyat_degisimini_ekle(veri)
     _kaydet(veriler)
     return sorted(veriler.values(), key=lambda veri: veri.get("duyuru_tarihi", ""), reverse=True)
 
