@@ -114,11 +114,14 @@ def hamburger_menu_ekle(response):
         )
     if '<div class="menu">' not in html:
         return response
+    def header_saatini_canli_yap(eslesme):
+        aktif_sayaci = eslesme.group(2) or ""
+        return f'{eslesme.group(1)}<p class="canli-saat" aria-live="polite"></p>{aktif_sayaci}</div>'
+
     html = re.sub(
-        r'(<div class="header">.*?</div>)<p>[^<]*</p>',
-        r'\1<p class="canli-saat" aria-live="polite"></p>',
+        r'(<div class="header">.*?</div>)<p>[^<]*?(\s*\|\s*\d+\s+aktif)?</p></div>',
+        header_saatini_canli_yap,
         html,
-        count=1,
         flags=re.DOTALL,
     )
     stil = """
