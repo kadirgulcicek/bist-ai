@@ -1352,6 +1352,10 @@ select{background:#0f3460;color:white;border:none;padding:8px 12px;border-radius
 </label>
 </div>
 <div class="ayar-row">
+<span><b>Bildirim saati:</b></span>
+<input type="time" name="saat" value="{{ ayarlar.saat or '09:00' }}" required>
+</div>
+<div class="ayar-row">
 <span><b>Zaman:</b></span>
 <select name="zaman">
 <option value="sabah" {% if ayarlar.zaman == 'sabah' %}selected{% endif %}>Sabah</option>
@@ -1811,6 +1815,12 @@ def sinyal_sayfasi():
                 "oncelik": s.get("oncelik", "DUSUK"),
                 "sebepler": s.get("sebepler", []),
             })
+        try:
+            from bildirim_sistemi import bildirim_gonder
+            for sinyal in sinyaller:
+                bildirim_gonder(kullanici, sinyal)
+        except Exception:
+            pass
 
         return render_template_string(
             HTML_SINYAL,
@@ -1907,11 +1917,13 @@ def bildirim_sayfasi():
         mevcut = kullanici_ayarlari_al(kullanici)
         yeni = {
             "aktif": request.form.get("aktif") == "on",
+            "saat": request.form.get("saat", "09:00"),
             "zaman": request.form.get("zaman", "sabah"),
             "tur": request.form.get("tur", "hepsi"),
             "hisseler": mevcut.get("hisseler", []),
             "siklik": request.form.get("siklik", "saatlik"),
             "son_bildirim": mevcut.get("son_bildirim"),
+            "gecmis": mevcut.get("gecmis", []),
         }
         kullanici_ayarlari_guncelle(kullanici, yeni)
         mesaj = "Ayarlar kaydedildi!"

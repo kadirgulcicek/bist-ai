@@ -15,6 +15,7 @@ def varsayilan_ayarlar():
     """Yeni kullanici icin varsayilan ayarlar"""
     return {
         "aktif": True,
+        "saat": "09:00",
         "zaman": "sabah",  # sabah, ogle, aksam, hepsi
         "tur": "hepsi",  # al, sat, hepsi
         "hisseler": [],  # Bos = tum hisseler
@@ -79,6 +80,18 @@ def bildirim_gonder(kullanici_adi, sinyal):
     
     if not ayarlar.get("aktif", True):
         return False
+
+    tercih_saati = str(ayarlar.get("saat", "09:00"))
+    try:
+        saat, dakika = (int(deger) for deger in tercih_saati.split(":", 1))
+        if not 0 <= saat <= 23 or not 0 <= dakika <= 59:
+            raise ValueError
+        if datetime.now().time().replace(second=0, microsecond=0) < datetime.now().replace(
+            hour=saat, minute=dakika, second=0, microsecond=0
+        ).time():
+            return False
+    except (TypeError, ValueError):
+        tercih_saati = "09:00"
     
     # Tur filtresi
     tur = ayarlar.get("tur", "hepsi")
@@ -92,6 +105,12 @@ def bildirim_gonder(kullanici_adi, sinyal):
     
     # Mesaj olustur
     mesaj = f"{sinyal.get('sembol', '')} - {sinyal.get('karar', '')} - {sinyal.get('sebepler', ['Yeni sinyal'])[0]}"
+    bugun = datetime.now().strftime("%Y-%m-%d")
+    if any(
+        kayit.get("tarih", "").startswith(bugun) and kayit.get("mesaj") == mesaj
+        for kayit in ayarlar.get("gecmis", [])
+    ):
+        return False
     
     # Kaydet (gercek bildirim gonderimi icin webhook entegrasyonu gerekir)
     bildirim_kaydet(kullanici_adi, mesaj)
