@@ -124,8 +124,8 @@ def _haber_detayi_al(link):
     return ""
 
 
-def _halkarz_detaylarini_oku():
-    if time.time() - _halkarz_onbellek["zaman"] < HALKARZ_CACHE_TTL:
+def _halkarz_detaylarini_oku(zorla=False):
+    if not zorla and time.time() - _halkarz_onbellek["zaman"] < HALKARZ_CACHE_TTL:
         return [dict(kayit) for kayit in _halkarz_onbellek["kayitlar"]]
     try:
         cevap = requests.get(HALKARZ_URL, headers={"User-Agent": "Mozilla/5.0"}, timeout=(3, 5))
@@ -290,10 +290,10 @@ def _kaynaklari_oku():
     return haberler
 
 
-def halka_arzlari_guncelle():
+def halka_arzlari_guncelle(zorla=False):
     veriler = _yukle()
     eski_veriler = veriler
-    halkarz_kayitlari = _halkarz_detaylarini_oku()
+    halkarz_kayitlari = _halkarz_detaylarini_oku(zorla=zorla)
     if not halkarz_kayitlari:
         halkarz_kayitlari = [v for v in veriler.values() if v.get("kaynak") == "HalkArz.com"]
     veriler = {}
@@ -322,8 +322,8 @@ def halka_arzlari_guncelle():
     return sorted(veriler.values(), key=lambda veri: veri.get("duyuru_tarihi", ""), reverse=True)
 
 
-def halka_arz_ozeti():
-    veriler = halka_arzlari_guncelle()
+def halka_arz_ozeti(zorla=False):
+    veriler = halka_arzlari_guncelle(zorla=zorla)
     guncel_semboller = {
         _sembol_temizle(veri.get("sembol"))
         for veri in _halkarz_detaylarini_oku()
@@ -340,11 +340,16 @@ def halka_arz_ozeti():
         son_alti.append(veri)
         if len(son_alti) == 6:
             break
+    fiyatli = [veri for veri in son_alti if veri.get("guncel_fiyat") != "Veri yok"]
     return {
         "tum": son_alti,
         "son_alti": son_alti,
         "takip": [veri for veri in son_alti if veri.get("durum") == "14 GUN TAKIP"],
         "beklenen": [veri for veri in son_alti if veri.get("durum") == "BEKLENIYOR"],
+        "veri_sayisi": len(son_alti),
+        "fiyatli_veri_sayisi": len(fiyatli),
+        "veri_kaynagi": "HalkArz.com",
+        "onbellek_suresi": HALKARZ_CACHE_TTL // 60,
         "son_guncelleme": datetime.now().strftime("%d.%m.%Y %H:%M"),
     }
 
