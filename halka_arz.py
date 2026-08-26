@@ -10,6 +10,7 @@ from html import unescape
 from datetime import datetime, timedelta
 
 import requests
+import yfinance as yf
 
 DOSYA = "halka_arz_takip.json"
 MANUEL_DOSYA = "manual_ekle.json"
@@ -315,6 +316,8 @@ def halka_arzlari_guncelle():
             veri["durum"] = "14 GUN TAKIP"
         elif tarih and tarih > bugun:
             veri["durum"] = "BEKLENIYOR"
+    with ThreadPoolExecutor(max_workers=6) as havuz:
+        list(havuz.map(_fiyat_degisimini_ekle, veriler.values()))
     _kaydet(veriler)
     return sorted(veriler.values(), key=lambda veri: veri.get("duyuru_tarihi", ""), reverse=True)
 
