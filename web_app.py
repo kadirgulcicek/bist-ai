@@ -111,6 +111,12 @@ def hamburger_menu_ekle(response):
             '<a href="/istihbarat">Istihbarat</a>',
             '<a href="/istihbarat">Istihbarat</a><a href="/halka-arz">Halka Arz</a>',
         )
+    if "/tarama" not in html:
+        html = html.replace(
+            '<a href="/halka-arz"',
+            '<a href="/tarama">Tarama</a><a href="/halka-arz"',
+            1,
+        )
         html = html.replace(
             '<a href="/istihbarat" class="active">Istihbarat</a>',
             '<a href="/istihbarat" class="active">Istihbarat</a><a href="/halka-arz">Halka Arz</a>',
@@ -982,6 +988,19 @@ setInterval(cihazinSaatiniGoster, 1000);
 """
 
 
+HTML_TARAMA = """
+<!DOCTYPE html><html><head><title>BIST AI - Piyasa Tarama</title><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}.container{max-width:1100px;margin:auto}.header{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 16px;background:linear-gradient(135deg,#16213e,#0f3460);border-radius:8px;margin-bottom:15px}.header h1{margin:0;color:#e94560;font-size:20px}.header p{margin:0;color:#dfeaff;font-size:12px}.menu{display:flex;gap:8px;margin:15px 0;flex-wrap:wrap}.menu a{flex:1;min-width:80px;padding:8px;background:#0f3460;color:white;text-decoration:none;border-radius:5px;text-align:center;font-size:13px}.menu a.active{background:#e94560}.ozet{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:15px 0}.kutu{background:#16213e;padding:15px;border-radius:8px;border-left:4px solid #4caf50}.kutu b{display:block;font-size:24px;margin-top:5px}.muted{color:#b0bec5;font-size:12px}.yenile{display:inline-block;background:#e94560;color:white;text-decoration:none;padding:9px 14px;border-radius:5px;font-weight:bold}.tablo{width:100%;border-collapse:collapse;background:#16213e;border-radius:8px;overflow:hidden}.tablo th,.tablo td{text-align:left;padding:11px 10px;border-bottom:1px solid #243659;font-size:13px}.tablo th{color:#b0bec5;font-size:11px;text-transform:uppercase}.tablo tr:hover{background:#193d70}.puan{font-weight:bold}.yuksek{color:#4caf50}.orta{color:#ffca28}.izle{color:#b0bec5}.ai{color:#cfe2ff;text-decoration:none}.ai:hover{text-decoration:underline}@media(max-width:700px){.ozet{grid-template-columns:1fr 1fr}.tablo{font-size:12px}.tablo th,.tablo td{padding:9px 6px}.tablo th:nth-child(4),.tablo td:nth-child(4){display:none}}
+</style></head><body><div class="container"><div class="header"><div><h1>BIST AI</h1><small>SİZİN İÇİN ÇALIŞIYORUZ</small></div><p>{{ tarama.son_guncelleme }}</p></div>
+<div class="menu"><a href="/">Portfoy</a><a href="/panel">Panel</a><a href="/ai">AI</a><a href="/sinyal">Sinyal</a><a href="/tarama" class="active">Piyasa Tarama</a><a href="/halka-arz">Halka Arz</a></div>
+<div class="ozet"><div class="kutu"><span class="muted">Sembol havuzu</span><b>{{ tarama.sembol_sayisi }}</b></div><div class="kutu"><span class="muted">Verisi gelen</span><b>{{ tarama.veri_sayisi }}</b></div><div class="kutu"><span class="muted">Güçlü aday</span><b>{{ tarama.adaylar|length }}</b></div><div class="kutu"><span class="muted">Son tarama</span><b>{{ tarama.son_guncelleme[11:] }}</b></div></div>
+<p class="muted">Bu liste tavan garantisi vermez. Momentum, hacim ve trend birlikteliğine göre yüksek hareket adayı olarak sıralanır.</p><a class="yenile" href="/tarama?yenile=1">Piyasayı yeniden tara</a>
+{% if tarama.adaylar %}<h2>En Güçlü Yükseliş Adayları</h2><table class="tablo"><thead><tr><th>Sembol</th><th>Fiyat</th><th>Günlük</th><th>Hacim oranı</th><th>Trend</th><th>Puan</th><th>AI</th></tr></thead><tbody>{% for h in tarama.adaylar %}<tr><td><b>{{ h.sembol }}</b></td><td>{{ h.fiyat }} TL</td><td class="{% if h.gunluk >= 0 %}yuksek{% else %}izle{% endif %}">{{ '%+.2f'|format(h.gunluk) }}%</td><td>{{ h.hacim_orani }}x</td><td>{{ '%+.2f'|format(h.trend) }}%</td><td class="puan {{ h.aday_seviyesi|lower }}">{{ h.aday_puani }}/100</td><td><a class="ai" href="/ai?sembol={{ h.sembol }}">Yorumla</a></td></tr>{% endfor %}</tbody></table>{% else %}<div class="kutu"><p>Henüz aday verisi alınamadı. Yenile düğmesini tekrar deneyin.</p></div>{% endif %}
+</div></body></html>
+"""
+
+
 HTML_AI = """
 <!DOCTYPE html>
 <html>
@@ -1809,6 +1828,19 @@ def ai_tahmin_sayfasi():
         )
 
 
+@app.route("/tarama")
+def piyasa_tarama_sayfasi():
+    kullanici = aktif_kullanici_al()
+    if not kullanici:
+        return redirect(url_for("giris"))
+    try:
+        from piyasa_tarama import piyasa_taramasi
+        tarama = piyasa_taramasi(force=request.args.get("yenile") == "1")
+    except Exception:
+        tarama = {"sonuclar": [], "adaylar": [], "sembol_sayisi": 0, "veri_sayisi": 0, "son_guncelleme": "Veri yok"}
+    return render_template_string(HTML_TARAMA, tarama=tarama)
+
+
 @app.route("/istihbarat")
 def istihbarat_sayfasi():
     kullanici = aktif_kullanici_al()
@@ -1871,8 +1903,11 @@ def sinyal_sayfasi():
             })
         try:
             from ai_yorumlama import sinyal_yorumla
-            for sinyal in sinyaller:
-                sinyal["ai_yorum"] = sinyal_yorumla(sinyal["sembol"], sinyal)
+            for sira, sinyal in enumerate(sinyaller):
+                if sira < 10:
+                    sinyal["ai_yorum"] = sinyal_yorumla(sinyal["sembol"], sinyal)
+                else:
+                    sinyal["ai_yorum"] = "Bu aday teknik puanlamada bulundu. Detayli AI analizi en guclu 10 aday icin uretilir."
         except Exception:
             for sinyal in sinyaller:
                 sinyal["ai_yorum"] = "AI yorumu su anda kullanilamiyor."

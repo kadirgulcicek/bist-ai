@@ -2,6 +2,12 @@ import yfinance as yf
 import numpy as np
 from datetime import datetime, timedelta
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
+
+
+def _benzersiz_hisse_havuzu():
+    from hisse_listesi import hisse_listesi_getir
+    return sorted({str(sembol).upper().replace(".IS", "") for sembol in hisse_listesi_getir()})
 
 
 def guvenli_veri(sembol, period="6mo"):
@@ -609,29 +615,26 @@ def portfoy_sinyalleri_al(kullanici_adi):
         except:
             continue
     
-    # Yeni hisseler
-    yeni_hisseler = ["THYAO", "GARAN", "ASELS", "TUPRS", "EREGL",
-                     "KCHOL", "PETKM", "BIMAS", "SISE", "AKBNK",
-                     "ISCTR", "YKBNK", "SAHOL", "EKGYO", "TAVHL",
-                     "FROTO", "PETKM", "BIMAS", "SISE"]
-    
-    portfoy_semboller = [h["sembol"] for h in portfoy]
-    
-    for sembol in yeni_hisseler:
-        if sembol in portfoy_semboller:
-            continue
+    # Portfoy disinda kalan tum benzersiz BIST hisselerini tara.
+    portfoy_semboller = {str(h["sembol"]).upper().replace(".IS", "") for h in portfoy}
+    taranacaklar = [sembol for sembol in _benzersiz_hisse_havuzu() if sembol not in portfoy_semboller]
+
+    def tara(sembol):
         try:
-            s = sinyal_analiz(sembol)
-            if s and s["karar"] in ["AL", "SAT"]:
-                sinyaller.append(s)
-        except:
-            continue
+            sonuc = sinyal_analiz(sembol)
+            return sonuc if sonuc and sonuc.get("karar") in ["AL", "SAT"] else None
+        except Exception:
+            return None
+
+    with ThreadPoolExecutor(max_workers=8) as havuz:
+        sinyaller.extend(sonuc for sonuc in havuz.map(tara, taranacaklar) if sonuc)
     
     # Oncelik siralamasi
     sirala = {"YUKSEK": 0, "ORTA": 1, "DUSUK": 2}
     sinyaller.sort(key=lambda x: (
-        0 if x["karar"] == "SAT" else 1,
-        sirala.get(x.get("oncelik", "DUSUK"), 3)
+        0 if x["karar"] == "AL" else 1,
+        sirala.get(x.get("oncelik", "DUSUK"), 3),
+        -(x.get("al_puan", 0) if x["karar"] == "AL" else x.get("sat_puan", 0)),
     ))
     
     return sinyaller
