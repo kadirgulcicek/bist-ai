@@ -16,7 +16,6 @@ def varsayilan_ayarlar():
     return {
         "aktif": True,
         "saat": "09:00",
-        "zaman": "sabah",  # sabah, ogle, aksam, hepsi
         "tur": "hepsi",  # al, sat, hepsi
         "hisseler": [],  # Bos = tum hisseler
         "siklik": "saatlik",  # saatlik, gunluk, haftalik

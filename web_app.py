@@ -1356,15 +1356,6 @@ select{background:#0f3460;color:white;border:none;padding:8px 12px;border-radius
 <input type="time" name="saat" value="{{ ayarlar.saat or '09:00' }}" required>
 </div>
 <div class="ayar-row">
-<span><b>Zaman:</b></span>
-<select name="zaman">
-<option value="sabah" {% if ayarlar.zaman == 'sabah' %}selected{% endif %}>Sabah</option>
-<option value="ogle" {% if ayarlar.zaman == 'ogle' %}selected{% endif %}>Ogle</option>
-<option value="aksam" {% if ayarlar.zaman == 'aksam' %}selected{% endif %}>Aksam</option>
-<option value="hepsi" {% if ayarlar.zaman == 'hepsi' %}selected{% endif %}>Hepsi</option>
-</select>
-</div>
-<div class="ayar-row">
 <span><b>Tur:</b></span>
 <select name="tur">
 <option value="hepsi" {% if ayarlar.tur == 'hepsi' %}selected{% endif %}>Hepsi</option>
@@ -1918,7 +1909,6 @@ def bildirim_sayfasi():
         yeni = {
             "aktif": request.form.get("aktif") == "on",
             "saat": request.form.get("saat", "09:00"),
-            "zaman": request.form.get("zaman", "sabah"),
             "tur": request.form.get("tur", "hepsi"),
             "hisseler": mevcut.get("hisseler", []),
             "siklik": request.form.get("siklik", "saatlik"),
