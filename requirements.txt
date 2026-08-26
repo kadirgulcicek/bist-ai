@@ -17,3 +17,5 @@ lxml_html_clean
 gunicorn
 bcrypt
 xlsxwriter
+openai
+python-dotenv

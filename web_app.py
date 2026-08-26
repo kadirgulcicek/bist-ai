@@ -15,6 +15,9 @@ import time
 import yfinance as yf
 import numpy as np
 from datetime import datetime
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from portfoy import Portfoy
 from sektor_analiz import sektor_analiz_yap, HISSE_SEKTORLERI
@@ -1000,6 +1003,12 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 .tahmin-card .degisim{font-size:20px;font-weight:bold}
 .yukari{color:#4caf50}.asagi{color:#f44336}
 .uyari{background:#0f3460;padding:10px;border-radius:5px;margin:10px 0;font-size:13px}
+.ai-sorgu{display:grid;grid-template-columns:1fr auto;gap:10px;background:#16213e;padding:15px;border-radius:8px;margin:15px 0}
+.ai-sorgu input{width:100%;padding:11px;border:1px solid rgba(255,255,255,.1);border-radius:5px;background:#0f3460;color:white;box-sizing:border-box;text-transform:uppercase}
+.ai-sorgu button{padding:11px 18px;background:#e94560;color:white;border:0;border-radius:5px;cursor:pointer;font-weight:bold}
+.yorum-card{background:#16213e;padding:15px;border-radius:8px;margin:15px 0;border-left:4px solid #ff9800}
+.yorum-card .yorum-meta{color:#b0bec5;font-size:13px;line-height:1.7}
+.yorum-card p{white-space:pre-line;line-height:1.7}
 .yarin-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:15px 0}
 .yarin-card{background:#16213e;padding:14px;border-radius:8px;border-left:4px solid #4caf50}
 .yarin-card .baslik{display:flex;justify-content:space-between;font-weight:bold}
@@ -1018,6 +1027,15 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 <h3>Ensemble AI Model</h3>
 <p>Yarının yönünü; momentum, EMA trendi ve RSI ile tahmin eder.</p>
 </div>
+<form method="GET" action="/ai" class="ai-sorgu">
+<input name="sembol" value="{{ sorgulanan_sembol or '' }}" placeholder="Hisse sembolü (örn. THYAO)" maxlength="6" pattern="[A-Za-z]{3,6}">
+<button type="submit">Hisseyi yorumla</button>
+</form>
+{% if sorgulanan_sembol %}
+{% if sorgu_sinyali %}
+<div class="yorum-card"><h2>{{ sorgu_sinyali.sembol }} AI Yorumu</h2><p class="yorum-meta">Karar: <b>{{ sorgu_sinyali.karar }}</b> | Öncelik: <b>{{ sorgu_sinyali.oncelik }}</b> | Fiyat: <b>{{ sorgu_sinyali.fiyat }} TL</b><br>RSI: {{ sorgu_sinyali.rsi }} | MACD: {{ sorgu_sinyali.macd }}</p><p>{{ sorgu_yorumu }}</p></div>
+{% else %}<div class="uyari">{{ sorgulanan_sembol }} için teknik sinyal üretilemedi. Sembolü kontrol edip tekrar deneyin.</div>{% endif %}
+{% endif %}
 {% if yarin_tahminleri %}
 <h2>Yarın Yükselme İhtimali En Yüksek Hisseler</h2>
 <div class="yarin-grid">
@@ -1079,6 +1097,7 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 .oncelik.yuksek{background:#f44336;color:white}
 .info-box{background:#16213e;padding:15px;border-radius:8px;margin:15px 0;text-align:center}
 .uyari{background:#5c1f1f;padding:10px;border-radius:5px;margin:10px 0;font-size:13px}
+.ai-yorum{margin-top:12px;padding:11px 13px;background:#193d70;border-left:3px solid #ff9800;border-radius:5px;color:#e8f1ff;font-size:13px;line-height:1.6;white-space:pre-line}
 </style></head>
 <body>
 <div class="container">
@@ -1103,6 +1122,7 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 <span class="sebep">{{ sebep }}</span>
 {% endfor %}
 </div>
+<div class="ai-yorum"><b>AI yorumu:</b> {{ s.ai_yorum }}</div>
 </div>
 {% endfor %}
 <div class="uyari">NOT: Bu sistem oneri verir. Kendi kararinizi kullanin.</div>
@@ -1735,6 +1755,15 @@ def risk():
 @app.route("/ai")
 def ai_tahmin_sayfasi():
     try:
+        sorgulanan_sembol = re.sub(r"[^A-Z]", "", request.args.get("sembol", "").upper())[:6]
+        sorgu_sinyali = None
+        sorgu_yorumu = None
+        if sorgulanan_sembol:
+            from sinyal_pro import sinyal_analiz
+            sorgu_sinyali = sinyal_analiz(sorgulanan_sembol)
+            if sorgu_sinyali and sorgu_sinyali.get("karar") != "HATA":
+                from ai_yorumlama import sinyal_yorumla
+                sorgu_yorumu = sinyal_yorumla(sorgulanan_sembol, sorgu_sinyali)
         hisseler = ["THYAO", "GARAN", "ASELS", "TUPRS", "EREGL"]
         yarin_tahminleri = []
         for sembol in hisseler:
@@ -1767,11 +1796,16 @@ def ai_tahmin_sayfasi():
             sonuclar=sonuclar,
             yarin_tahminleri=yarin_tahminleri,
             bugun_yukselenler=bugun_yukselenler,
+            sorgulanan_sembol=sorgulanan_sembol,
+            sorgu_sinyali=sorgu_sinyali,
+            sorgu_yorumu=sorgu_yorumu,
         )
     except Exception as e:
         return render_template_string(
             HTML_AI,
-            sonuclar=[], yarin_tahminleri=[], bugun_yukselenler=[]
+            sonuclar=[], yarin_tahminleri=[], bugun_yukselenler=[],
+            sorgulanan_sembol=request.args.get("sembol", "").upper(),
+            sorgu_sinyali=None, sorgu_yorumu=None,
         )
 
 
@@ -1824,7 +1858,24 @@ def sinyal_sayfasi():
                 "karar": s.get("karar", "BEKLE"),
                 "oncelik": s.get("oncelik", "DUSUK"),
                 "sebepler": s.get("sebepler", []),
+                "rsi": s.get("rsi", "N/A"),
+                "macd": s.get("macd", "N/A"),
+                "adx": s.get("adx", "N/A"),
+                "stoch": s.get("stoch", "N/A"),
+                "cci": s.get("cci", "N/A"),
+                "williams": s.get("williams", "N/A"),
+                "bb_pos": s.get("bb_pos", "N/A"),
+                "al_puan": s.get("al_puan", "N/A"),
+                "sat_puan": s.get("sat_puan", "N/A"),
+                "formasyonlar": s.get("formasyonlar", []),
             })
+        try:
+            from ai_yorumlama import sinyal_yorumla
+            for sinyal in sinyaller:
+                sinyal["ai_yorum"] = sinyal_yorumla(sinyal["sembol"], sinyal)
+        except Exception:
+            for sinyal in sinyaller:
+                sinyal["ai_yorum"] = "AI yorumu su anda kullanilamiyor."
         try:
             from bildirim_sistemi import bildirim_gonder
             for sinyal in sinyaller:
