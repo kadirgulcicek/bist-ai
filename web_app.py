@@ -10,6 +10,7 @@ from flask import (
 import csv
 import io
 import os
+import re
 import time
 import yfinance as yf
 import numpy as np
@@ -113,6 +114,13 @@ def hamburger_menu_ekle(response):
         )
     if '<div class="menu">' not in html:
         return response
+    html = re.sub(
+        r'(<div class="header">.*?</div>)<p>[^<]*</p>',
+        r'\1<p class="canli-saat" aria-live="polite"></p>',
+        html,
+        count=1,
+        flags=re.DOTALL,
+    )
     stil = """
 <style>
 .header{padding-left:64px;box-sizing:border-box}
@@ -135,6 +143,14 @@ def hamburger_menu_ekle(response):
   toggle.addEventListener('click',function(){var acik=menu.classList.toggle('acik');backdrop.classList.toggle('acik',acik);toggle.setAttribute('aria-label',acik?'Menüyü kapat':'Menüyü aç');});
   backdrop.addEventListener('click',kapat);
   menu.querySelectorAll('a').forEach(function(link){link.addEventListener('click',kapat);});
+})();
+(function(){
+    function guncelle(){
+        var simdi=new Date();
+        var metin=simdi.toLocaleDateString('tr-TR',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+simdi.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+        document.querySelectorAll('.canli-saat,#canli-saat').forEach(function(alan){alan.textContent=metin;});
+    }
+    guncelle(); setInterval(guncelle,1000);
 })();
 </script>
 """
