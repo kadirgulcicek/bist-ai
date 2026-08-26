@@ -4,12 +4,20 @@ import json
 import os
 import re
 import calendar
+import time
+from html import unescape
 from datetime import datetime, timedelta
 
 import feedparser
+import requests
 import yfinance as yf
 
 DOSYA = "halka_arz_takip.json"
+MANUEL_DOSYA = "manual_ekle.json"
+HTTP_TIMEOUT = 8
+HALKARZ_URL = "https://halkarz.com/"
+HALKARZ_CACHE_TTL = 900
+_halkarz_onbellek = {"zaman": 0, "kayitlar": []}
 KAYNAKLAR = {
     "KAP": "https://www.kap.org.tr/tr/rss/bildirim",
     "Google News - Halka Arz": "https://news.google.com/rss/search?q=halka%20arz%20BIST&hl=tr&gl=TR&ceid=TR:tr",
@@ -25,6 +33,25 @@ def _yukle():
             return json.load(dosya)
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
+
+
+def _manuel_verileri_uygula(veriler):
+    try:
+        with open(MANUEL_DOSYA, "r", encoding="utf-8") as dosya:
+            manuel = json.load(dosya)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return
+    for kayit in manuel if isinstance(manuel, list) else []:
+        sembol = _sembol_temizle(kayit.get("sembol"))
+        if not sembol:
+            continue
+        for veri in veriler.values():
+            if _sembol_temizle(veri.get("sembol")) == sembol:
+                for alan in ("sirket", "arz_fiyati", "iskonto", "link"):
+                    deger = kayit.get(alan)
+                    if deger not in (None, "", "Belirtilmedi"):
+                        veri[alan] = deger
+                break
 
 
 def _kaydet(veriler):
@@ -51,26 +78,140 @@ def _tarih_bul(metin):
         return None
 
 
+def _metni_temizle(metin):
+    metin = unescape(str(metin or ""))
+    metin = re.sub(r"<[^>]+>", " ", metin)
+    return re.sub(r"\s+", " ", metin).strip()
+
+
 def _alan_bul(metin, desenler):
     for desen in desenler:
         eslesme = re.search(desen, metin, re.IGNORECASE)
         if eslesme:
-            return eslesme.group(1).strip()
+            return eslesme.group(1).strip(" \t\r\n.,;:")
     return "Belirtilmedi"
 
 
+def _fiyat_bul(metin):
+    desenler = (
+        r"(?:halka arz|arz|satış|satis|pay başına|birim pay)[^.;]{0,80}?(?:fiyatı|fiyati|bedeli)?\s*[:=-]?\s*(\d{1,5}(?:[.,]\d{1,2})?)\s*(?:TL|lira)\b",
+        r"(?:arz|satış|satis) fiyat(?:ı|i)?\s*[:=-]?\s*(\d{1,5}(?:[.,]\d{1,2})?)\s*(?:TL|lira)?\b",
+        r"(\d{1,5}(?:[.,]\d{1,2})?)\s*(?:TL|lira)\s*(?:fiyatından|fiyatla|ile)\s*(?:halka arz|satış|satis)",
+    )
+    return _alan_bul(metin, desenler)
+
+
+def _iskonto_bul(metin):
+    desenler = (
+        r"(?:iskonto|indirim)(?: oranı| orani)?\s*[:=-]?\s*%?\s*(\d+(?:[.,]\d+)?)\s*%?",
+        r"%\s*(\d+(?:[.,]\d+)?)\s*(?:oranında\s+)?(?:iskonto|indirim)",
+        r"(\d+(?:[.,]\d+)?)\s*%\s*(?:iskontolu|indirimli)",
+        r"yüzde\s+(\d+(?:[.,]\d+)?)\s*(?:oranında\s+)?(?:iskonto|indirim)",
+    )
+    sonuc = _alan_bul(metin, desenler)
+    return f"%{sonuc}" if sonuc != "Belirtilmedi" else sonuc
+
+
+def _haber_detayi_al(link):
+    if not link:
+        return ""
+    try:
+        cevap = requests.get(link, headers={"User-Agent": "Mozilla/5.0"}, timeout=4)
+        if cevap.ok:
+            return _metni_temizle(cevap.text)
+    except requests.RequestException:
+        pass
+    return ""
+
+
+def _halkarz_detaylarini_oku():
+    if time.time() - _halkarz_onbellek["zaman"] < HALKARZ_CACHE_TTL:
+        return [dict(kayit) for kayit in _halkarz_onbellek["kayitlar"]]
+    try:
+        cevap = requests.get(HALKARZ_URL, headers={"User-Agent": "Mozilla/5.0"}, timeout=HTTP_TIMEOUT)
+        cevap.raise_for_status()
+    except requests.RequestException:
+        return []
+
+    adresler = []
+    for adres in re.findall(r'href=["\'](https://halkarz\.com/[^"\']+/)["\']', cevap.text):
+        if re.search(r"-a-s/$", adres) and adres not in adresler:
+            adresler.append(adres)
+    kayitlar = []
+    for adres in adresler[:8]:
+        try:
+            detay_cevap = requests.get(adres, headers={"User-Agent": "Mozilla/5.0"}, timeout=HTTP_TIMEOUT)
+            detay_cevap.raise_for_status()
+        except requests.RequestException:
+            continue
+        html = unescape(detay_cevap.text)
+        metin = _metni_temizle(html)
+        sembol = _alan_bul(metin, (r"Bist Kodu\s*:\s*([A-Z]{3,6})\b",))
+        if not _sembol_temizle(sembol):
+            continue
+        sirket = _alan_bul(html, (r"<h1[^>]*>\s*(.*?)\s*</h1>",))
+        sirket = _metni_temizle(sirket)
+        if sirket == "Belirtilmedi":
+            sirket = _alan_bul(metin, (r"(?:Halka Arz Bilgileri|Halka Arz)\s*:?\s*([^|]+)",))
+        fiyat = _alan_bul(metin, (
+            r"Halka Arz Fiyatı/Aralığı\s*:\s*([0-9.,]+\s*TL)",
+            r"Halka Arz Fiyatı\s*:\s*([0-9.,]+\s*TL)",
+        ))
+        iskonto = _alan_bul(metin, (r"Halka Arz İskontosu\s*-\s*(%\s*[0-9.,]+)",))
+        ilk_islem = _alan_bul(metin, (r"Bist İlk İşlem Tarihi\s*:\s*([^|]+?20\d{2})",))
+        talep_tarihi = _alan_bul(metin, (r"Halka Arz Tarihi\s*:\s*([^|]+?20\d{2})",))
+        arz_tarihi = _tarih_bul(talep_tarihi)
+        kayitlar.append({
+            "id": adres,
+            "sirket": _metni_temizle(sirket),
+            "sembol": sembol,
+            "baslik": f"{_metni_temizle(sirket)} halka arz",
+            "link": adres,
+            "kaynak": "HalkArz.com",
+            "arz_fiyati": fiyat,
+            "iskonto": iskonto,
+            "talep_tarihi": talep_tarihi or "Belirtilmedi",
+            "borsa_baslangic": ilk_islem,
+            "duyuru_tarihi": arz_tarihi.isoformat() if arz_tarihi else datetime.now().date().isoformat(),
+            "takip_baslangic": None,
+            "takip_bitis": None,
+            "durum": "DUYURU",
+        })
+    _halkarz_onbellek["zaman"] = time.time()
+    _halkarz_onbellek["kayitlar"] = kayitlar
+    return [dict(kayit) for kayit in kayitlar]
+
+
 def _kayit_olustur(baslik, ozet, link, kaynak):
+    baslik = _metni_temizle(baslik)
+    ozet = _metni_temizle(ozet)
     metin = f"{baslik} {ozet}"
     if not any(anahtar in metin.lower() for anahtar in ANAHTARLAR):
         return None
-    sembol = _alan_bul(metin, (r"(?:kod|borsa kodu)[: ]+([A-Z]{3,6})\b", r"\b([A-Z]{3,6})\.E\b", r"\(([A-Z]{3,6})\)\s+halka arz", r"\*{2,}\s*([A-Z]{3,6})(?:,[A-Z]{3,6})*\s*\*{2,}"))
-    sirket = _alan_bul(metin, (r"(?:şirket|firma)[: ]+([^,.;]+)", r"^([^:.;-]+?)\s+halka arz"))
+    sembol = _alan_bul(metin, (
+        r"(?:kod|borsa kodu|sembol|ticker)\s*[:=-]?\s*([A-Z]{3,6})\b",
+        r"\b([A-Z]{3,6})\.E\b",
+        r"\(([A-Z]{3,6})\)",
+        r"\*{2,}\s*([A-Z]{3,6})(?:,[A-Z]{3,6})*\s*\*{2,}",
+        r"\b([A-Z]{3,6})\s+(?:halka arz|borsada işlem|ne zaman borsada)",
+    ))
+    sirket = _alan_bul(metin, (
+        r"(?:şirket|firma)\s*[:=-]\s*([^,.;]+)",
+        r"^(.+?)\s+halka arz(?:ı|i)?\b",
+    ))
     if sirket == "Belirtilmedi":
         baslik_sirket = re.split(r"\s+halka arz", baslik, maxsplit=1, flags=re.IGNORECASE)[0]
         kap = re.match(r"^KAP\s+\*{2,}\s*(.*?)\s+\*{2,}\s+[A-Z,]+\s+\*{2,}", baslik_sirket, flags=re.IGNORECASE)
         sirket = kap.group(1) if kap else re.sub(r"^KAP\s+\*{2,}.*?\*{2,}\s*", "", baslik_sirket, flags=re.IGNORECASE).strip(" -:") or "Belirtilmedi"
     sirket = re.sub(r"\s*\*{2,}.*$", "", sirket).strip(" -:") or "Belirtilmedi"
     arz_tarihi = _tarih_bul(metin)
+    arz_fiyati = _fiyat_bul(metin)
+    iskonto = _iskonto_bul(metin)
+    if _sembol_temizle(sembol) and (arz_fiyati == "Belirtilmedi" or iskonto == "Belirtilmedi"):
+        detay = _haber_detayi_al(link)
+        metin = f"{metin} {detay}"
+        arz_fiyati = arz_fiyati if arz_fiyati != "Belirtilmedi" else _fiyat_bul(metin)
+        iskonto = iskonto if iskonto != "Belirtilmedi" else _iskonto_bul(metin)
     return {
         "id": link or baslik,
         "sirket": sirket,
@@ -78,8 +219,8 @@ def _kayit_olustur(baslik, ozet, link, kaynak):
         "baslik": baslik,
         "link": link,
         "kaynak": kaynak,
-        "arz_fiyati": _alan_bul(metin, (r"(?:arz fiyat.{0,2}|satış fiyat.{0,2})\s*[:=-]?\s*([0-9]+(?:[.,][0-9]+)?)\s*TL?", r"(?:arz fiyat.{0,2}|satış fiyat.{0,2})\s*[:=-]?\s*([0-9]+(?:[.,][0-9]+)?)")),
-        "iskonto": _alan_bul(metin, (r"(?:iskonto|indirim)[: ]*%?([0-9]+(?:[.,][0-9]+)?)",)),
+        "arz_fiyati": arz_fiyati,
+        "iskonto": iskonto,
         "talep_tarihi": _alan_bul(metin, (r"(?:talep toplama|arz tarihi)[: ]*([^.;]+)",)),
         "borsa_baslangic": _alan_bul(metin, (r"(?:işlem görmeye|borsada işlem)[: ]*([^.;]+)",)),
         "duyuru_tarihi": arz_tarihi.isoformat() if arz_tarihi else datetime.now().date().isoformat(),
@@ -91,7 +232,7 @@ def _kayit_olustur(baslik, ozet, link, kaynak):
 
 def _sembol_temizle(sembol):
     sembol = str(sembol or "").upper().replace(".E", "")
-    yasakli = {"HALKA", "TALEP", "BORSA", "YENI", "HISSE", "GYO", "SANAYI", "BANK", "GIDA", "ENERJI", "PIYASA", "DAHA", "NEDIR", "SAAT", "NIN", "BETON", "YAPI", "DEVI", "TURIZM", "LIK"}
+    yasakli = {"HALKA", "TALEP", "BORSA", "BIST", "YENI", "HISSE", "GYO", "SANAYI", "BANK", "GIDA", "ENERJI", "PIYASA", "DAHA", "NEDIR", "SAAT", "NIN", "BETON", "YAPI", "DEVI", "TURIZM", "LIK", "HABER", "ZAMAN", "SON", "BUGUN", "YARIN", "NE", "KADAR", "OLUR", "BELLİ", "ACIKLANDI", "BEKLENIYOR", "ISLEM", "GORECEK"}
     return sembol if re.fullmatch(r"[A-Z]{3,6}", sembol) and sembol not in yasakli else ""
 
 
@@ -105,7 +246,9 @@ def _fiyat_degisimini_ekle(veri):
     if not sembol:
         return veri
     try:
-        fiyatlar = yf.Ticker(f"{sembol}.IS").history(period="max", auto_adjust=True)["Close"].dropna()
+        fiyatlar = yf.Ticker(f"{sembol}.IS").history(
+            period="max", auto_adjust=True, timeout=HTTP_TIMEOUT
+        )["Close"].dropna()
         if fiyatlar.empty:
             return veri
         baslangic = _tarih_bul(str(veri.get("borsa_baslangic", "")))
@@ -126,7 +269,13 @@ def _kaynaklari_oku():
     haberler = []
     for kaynak, url in KAYNAKLAR.items():
         try:
-            akis = feedparser.parse(url)
+            cevap = requests.get(
+                url,
+                headers={"User-Agent": "Mozilla/5.0"},
+                timeout=HTTP_TIMEOUT,
+            )
+            cevap.raise_for_status()
+            akis = feedparser.parse(cevap.content)
             for kayit in akis.entries[:50]:
                 haber = _kayit_olustur(kayit.get("title", ""), kayit.get("summary", ""), kayit.get("link", ""), kaynak)
                 if haber:
@@ -134,13 +283,25 @@ def _kaynaklari_oku():
                     if yayin_tarihi:
                         haber["duyuru_tarihi"] = datetime.fromtimestamp(calendar.timegm(yayin_tarihi)).date().isoformat()
                     haberler.append(haber)
-        except Exception:
+        except (requests.RequestException, ValueError):
             continue
     return haberler
 
 
 def halka_arzlari_guncelle():
     veriler = _yukle()
+    halkarz_kayitlari = _halkarz_detaylarini_oku()
+    for yeni in halkarz_kayitlari:
+        eslesme_id = yeni["id"]
+        for mevcut_id, mevcut in veriler.items():
+            if _sembol_temizle(mevcut.get("sembol")) == yeni["sembol"]:
+                eslesme_id = mevcut_id
+                break
+        eski = veriler.get(eslesme_id, {})
+        for alan in ("takip_baslangic", "takip_bitis", "durum"):
+            if eski.get(alan):
+                yeni[alan] = eski[alan]
+        veriler[eslesme_id] = yeni
     for yeni in _kaynaklari_oku():
         eslesme_id = yeni["id"]
         if yeni.get("sembol") and yeni["sembol"] != "Belirtilmedi":
@@ -150,7 +311,18 @@ def halka_arzlari_guncelle():
                     break
         eski = veriler.get(eslesme_id, {})
         yeni.update({k: eski.get(k) for k in ("takip_baslangic", "takip_bitis", "durum") if eski.get(k)})
+        for alan in ("sirket", "sembol", "arz_fiyati", "iskonto", "talep_tarihi", "borsa_baslangic"):
+            if yeni.get(alan) in (None, "", "Belirtilmedi") and eski.get(alan) not in (None, "", "Belirtilmedi"):
+                yeni[alan] = eski[alan]
         veriler[eslesme_id] = yeni
+    for yeni in halkarz_kayitlari:
+        for mevcut in veriler.values():
+            if mevcut.get("sembol") == yeni.get("sembol"):
+                for alan in ("sirket", "sembol", "baslik", "kaynak", "arz_fiyati", "iskonto", "talep_tarihi", "borsa_baslangic", "duyuru_tarihi", "link"):
+                    if yeni.get(alan) not in (None, "", "Belirtilmedi"):
+                        mevcut[alan] = yeni[alan]
+                break
+    _manuel_verileri_uygula(veriler)
     bugun = datetime.now().date()
     for veri in veriler.values():
         tarih = _tarih_bul(f"{veri.get('talep_tarihi', '')} {veri.get('duyuru_tarihi', '')}")
@@ -164,14 +336,30 @@ def halka_arzlari_guncelle():
             veri["durum"] = "14 GUN TAKIP"
         elif tarih and tarih > bugun:
             veri["durum"] = "BEKLENIYOR"
-        _fiyat_degisimini_ekle(veri)
+        if veri.get("kaynak") == "HalkArz.com":
+            _fiyat_degisimini_ekle(veri)
     _kaydet(veriler)
     return sorted(veriler.values(), key=lambda veri: veri.get("duyuru_tarihi", ""), reverse=True)
 
 
 def halka_arz_ozeti():
     veriler = halka_arzlari_guncelle()
-    son_alti = [veri for veri in veriler if _sembol_temizle(veri.get("sembol"))][:6]
+    guncel_semboller = {
+        _sembol_temizle(veri.get("sembol"))
+        for veri in _halkarz_detaylarini_oku()
+    }
+    son_alti = []
+    gorulen_semboller = set()
+    for veri in veriler:
+        if veri.get("kaynak") != "HalkArz.com" or _sembol_temizle(veri.get("sembol")) not in guncel_semboller:
+            continue
+        sembol = _sembol_temizle(veri.get("sembol"))
+        if not sembol or sembol in gorulen_semboller:
+            continue
+        gorulen_semboller.add(sembol)
+        son_alti.append(veri)
+        if len(son_alti) == 6:
+            break
     return {
         "tum": son_alti,
         "son_alti": son_alti,
@@ -179,3 +367,15 @@ def halka_arz_ozeti():
         "beklenen": [veri for veri in son_alti if veri.get("durum") == "BEKLENIYOR"],
         "son_guncelleme": datetime.now().strftime("%d.%m.%Y %H:%M"),
     }
+
+
+if __name__ == "__main__":
+    ozet = halka_arz_ozeti()
+    for veri in ozet["son_alti"]:
+        print(
+            f"{veri.get('sirket', 'Belirtilmedi')} | "
+            f"{veri.get('sembol', 'Belirtilmedi')} | "
+            f"Arz: {veri.get('arz_fiyati', 'Belirtilmedi')} | "
+            f"İskonto: {veri.get('iskonto', 'Belirtilmedi')} | "
+            f"Güncel: {veri.get('guncel_fiyat', 'Veri yok')} TL"
+        )
