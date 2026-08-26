@@ -1,5 +1,9 @@
 import yfinance as yf
 import pandas as pd
+import sys
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 print("BIST AI Sistemi - İlk Test")
 print("=" * 40)

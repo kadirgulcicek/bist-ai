@@ -4,7 +4,11 @@ Log dosyasını kontrol eder
 """
 
 import os
+import sys
 from datetime import datetime
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 log_dosyasi = "log.txt"
 

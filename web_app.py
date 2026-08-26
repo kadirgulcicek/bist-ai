@@ -106,21 +106,21 @@ def hamburger_menu_ekle(response):
     if not response.content_type or "text/html" not in response.content_type:
         return response
     html = response.get_data(as_text=True)
-    if "/halka-arz" not in html:
-        html = html.replace(
-            '<a href="/istihbarat">Istihbarat</a>',
-            '<a href="/istihbarat">Istihbarat</a><a href="/halka-arz">Halka Arz</a>',
+    menu_eslesmesi = re.search(r'<div class="menu">(.*?)</div>', html, flags=re.DOTALL)
+    if menu_eslesmesi:
+        aktif_yol = request.path
+        menu_linkleri = (
+            ("/", "Portfoy"), ("/panel", "Panel"), ("/sektor", "Sektor"),
+            ("/risk", "Risk"), ("/ai", "AI"), ("/istihbarat", "Istihbarat"),
+            ("/sinyal", "Sinyal"), ("/tarama", "Tarama"),
+            ("/halka-arz", "Halka Arz"), ("/canli", "Canli"),
+            ("/hedef", "Hedef"), ("/bildirim", "Bildirim"), ("/cikis", "Cikis"),
         )
-    if "/tarama" not in html:
-        html = html.replace(
-            '<a href="/halka-arz"',
-            '<a href="/tarama">Tarama</a><a href="/halka-arz"',
-            1,
+        menu = "".join(
+            f'<a href="{yol}"{(" class=\"active\"" if aktif_yol == yol else "")}>{etiket}</a>'
+            for yol, etiket in menu_linkleri
         )
-        html = html.replace(
-            '<a href="/istihbarat" class="active">Istihbarat</a>',
-            '<a href="/istihbarat" class="active">Istihbarat</a><a href="/halka-arz">Halka Arz</a>',
-        )
+        html = html[:menu_eslesmesi.start(1)] + menu + html[menu_eslesmesi.end(1):]
     if '<div class="menu">' not in html:
         return response
     def header_saatini_canli_yap(eslesme):
@@ -145,16 +145,20 @@ def hamburger_menu_ekle(response):
     script = """
 <script>
 (function(){
-  var menu=document.querySelector('.menu');
-  if(!menu || document.querySelector('.menu-toggle')) return;
-  var toggle=document.createElement('button');
-  toggle.className='menu-toggle'; toggle.type='button'; toggle.setAttribute('aria-label','Menüyü aç'); toggle.textContent='☰';
-  var backdrop=document.createElement('div'); backdrop.className='menu-backdrop';
-  document.body.append(toggle,backdrop);
-  function kapat(){menu.classList.remove('acik');backdrop.classList.remove('acik');toggle.setAttribute('aria-label','Menüyü aç');}
-  toggle.addEventListener('click',function(){var acik=menu.classList.toggle('acik');backdrop.classList.toggle('acik',acik);toggle.setAttribute('aria-label',acik?'Menüyü kapat':'Menüyü aç');});
-  backdrop.addEventListener('click',kapat);
-  menu.querySelectorAll('a').forEach(function(link){link.addEventListener('click',kapat);});
+    function menuKur(){
+        var menu=document.querySelector('.menu');
+        if(!menu || document.querySelector('.menu-toggle')) return;
+        var toggle=document.createElement('button');
+        toggle.className='menu-toggle'; toggle.type='button'; toggle.setAttribute('aria-label','Menüyü aç'); toggle.setAttribute('aria-expanded','false'); toggle.textContent='☰';
+        var backdrop=document.createElement('div'); backdrop.className='menu-backdrop';
+        document.body.append(toggle,backdrop);
+        function kapat(){menu.classList.remove('acik');backdrop.classList.remove('acik');toggle.setAttribute('aria-label','Menüyü aç');toggle.setAttribute('aria-expanded','false');}
+        toggle.addEventListener('click',function(){var acik=!menu.classList.contains('acik');menu.classList.toggle('acik',acik);backdrop.classList.toggle('acik',acik);toggle.setAttribute('aria-label',acik?'Menüyü kapat':'Menüyü aç');toggle.setAttribute('aria-expanded',String(acik));});
+        backdrop.addEventListener('click',kapat);
+        menu.querySelectorAll('a').forEach(function(link){link.addEventListener('click',kapat);});
+        document.addEventListener('keydown',function(event){if(event.key==='Escape') kapat();});
+    }
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',menuKur); else menuKur();
 })();
 (function(){
     function guncelle(){
@@ -197,6 +201,11 @@ def cacheli_gecmis(ticker, period="1y", auto_adjust=False):
     veri = yf.Ticker(ticker).history(period=period, auto_adjust=auto_adjust)
     _veri_cache[anahtar] = (simdi, veri)
     return veri
+
+
+def normalize_bist_sembol(sembol):
+    """Kullanici kaydini Yahoo icin tek bir BIST sembol formatina cevirir."""
+    return str(sembol or "").strip().upper().replace(".IS", "")
 
 kullanici_yoneticisi = KullaniciYoneticisi()
 
@@ -534,7 +543,8 @@ def portfoy_veri_hazirla_icin(hisseler_listesi):
 
     for hisse in hisseler_listesi:
         try:
-            ticker = yf.Ticker(hisse["sembol"] + ".IS")
+            sembol = normalize_bist_sembol(hisse.get("sembol"))
+            ticker = yf.Ticker(sembol + ".IS")
             veri = ticker.history(period="5d")
             if veri is None or len(veri) < 1:
                 continue
@@ -554,7 +564,7 @@ def portfoy_veri_hazirla_icin(hisseler_listesi):
             toplam_maliyet += maliyet
             toplam_deger += deger
             hisseler.append({
-                "sembol": hisse["sembol"],
+                "sembol": sembol,
                 "adet": hisse["adet"],
                 "alis": f"{hisse['alis_fiyati']:.2f}",
                 "guncel": f"{guncel:.2f}",
@@ -996,7 +1006,7 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}.con
 <div class="menu"><a href="/">Portfoy</a><a href="/panel">Panel</a><a href="/ai">AI</a><a href="/sinyal">Sinyal</a><a href="/tarama" class="active">Piyasa Tarama</a><a href="/halka-arz">Halka Arz</a></div>
 <div class="ozet"><div class="kutu"><span class="muted">Sembol havuzu</span><b>{{ tarama.sembol_sayisi }}</b></div><div class="kutu"><span class="muted">Verisi gelen</span><b>{{ tarama.veri_sayisi }}</b></div><div class="kutu"><span class="muted">Güçlü aday</span><b>{{ tarama.adaylar|length }}</b></div><div class="kutu"><span class="muted">Son tarama</span><b>{{ tarama.son_guncelleme[11:] }}</b></div></div>
 <p class="muted">Bu liste tavan garantisi vermez. Momentum, hacim ve trend birlikteliğine göre yüksek hareket adayı olarak sıralanır.</p><a class="yenile" href="/tarama?yenile=1">Piyasayı yeniden tara</a>
-{% if tarama.adaylar %}<h2>En Güçlü Yükseliş Adayları</h2><table class="tablo"><thead><tr><th>Sembol</th><th>Fiyat</th><th>Günlük</th><th>Hacim oranı</th><th>Trend</th><th>Puan</th><th>AI</th></tr></thead><tbody>{% for h in tarama.adaylar %}<tr><td><b>{{ h.sembol }}</b></td><td>{{ h.fiyat }} TL</td><td class="{% if h.gunluk >= 0 %}yuksek{% else %}izle{% endif %}">{{ '%+.2f'|format(h.gunluk) }}%</td><td>{{ h.hacim_orani }}x</td><td>{{ '%+.2f'|format(h.trend) }}%</td><td class="puan {{ h.aday_seviyesi|lower }}">{{ h.aday_puani }}/100</td><td><a class="ai" href="/ai?sembol={{ h.sembol }}">Yorumla</a></td></tr>{% endfor %}</tbody></table>{% else %}<div class="kutu"><p>Henüz aday verisi alınamadı. Yenile düğmesini tekrar deneyin.</p></div>{% endif %}
+{% if tarama.adaylar %}<h2>En Güçlü Yükseliş Adayları</h2><table class="tablo"><thead><tr><th>Sembol</th><th>Fiyat</th><th>1 Gün</th><th>5 Gün</th><th>20 Gün</th><th>Hacim</th><th>Puan</th><th>Risk</th><th>AI</th></tr></thead><tbody>{% for h in tarama.adaylar %}<tr><td><b>{{ h.sembol }}</b></td><td>{{ h.fiyat }} TL</td><td class="{% if h.gunluk >= 0 %}yuksek{% else %}izle{% endif %}">{{ '%+.2f'|format(h.gunluk) }}%</td><td>{{ '%+.2f'|format(h.getiri_5g) }}%</td><td>{{ '%+.2f'|format(h.getiri_20g) }}%</td><td>{{ h.hacim_orani }}x</td><td class="puan {{ h.aday_seviyesi|lower }}">{{ h.aday_puani }}/100</td><td class="{{ 'izle' if h.risk_uyarisi != 'Normal' else 'yuksek' }}">{{ h.risk_uyarisi }}</td><td><a class="ai" href="/ai?sembol={{ h.sembol }}">Yorumla</a></td></tr>{% endfor %}</tbody></table>{% else %}<div class="kutu"><p>Henüz aday verisi alınamadı. Yenile düğmesini tekrar deneyin.</p></div>{% endif %}
 </div></body></html>
 """
 
@@ -1025,6 +1035,8 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 .ai-sorgu{display:grid;grid-template-columns:1fr auto;gap:10px;background:#16213e;padding:15px;border-radius:8px;margin:15px 0}
 .ai-sorgu input{width:100%;padding:11px;border:1px solid rgba(255,255,255,.1);border-radius:5px;background:#0f3460;color:white;box-sizing:border-box;text-transform:uppercase}
 .ai-sorgu button{padding:11px 18px;background:#e94560;color:white;border:0;border-radius:5px;cursor:pointer;font-weight:bold}
+.geri-btn{display:inline-block;margin:0 0 15px;padding:10px 16px;background:#0f3460;color:#fff;text-decoration:none;border:1px solid #4f78ad;border-radius:5px;font-weight:bold}
+.geri-btn:hover{background:#193d70}
 .yorum-card{background:#16213e;padding:15px;border-radius:8px;margin:15px 0;border-left:4px solid #ff9800}
 .yorum-card .yorum-meta{color:#b0bec5;font-size:13px;line-height:1.7}
 .yorum-card p{white-space:pre-line;line-height:1.7}
@@ -1050,6 +1062,7 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 <input name="sembol" value="{{ sorgulanan_sembol or '' }}" placeholder="Hisse sembolü (örn. THYAO)" maxlength="6" pattern="[A-Za-z]{3,6}">
 <button type="submit">Hisseyi yorumla</button>
 </form>
+<a class="geri-btn" href="/tarama">&lt; Tarama sayfasına dön</a>
 {% if sorgulanan_sembol %}
 {% if sorgu_sinyali %}
 <div class="yorum-card"><h2>{{ sorgu_sinyali.sembol }} AI Yorumu</h2><p class="yorum-meta">Karar: <b>{{ sorgu_sinyali.karar }}</b> | Öncelik: <b>{{ sorgu_sinyali.oncelik }}</b> | Fiyat: <b>{{ sorgu_sinyali.fiyat }} TL</b><br>RSI: {{ sorgu_sinyali.rsi }} | MACD: {{ sorgu_sinyali.macd }}</p><p>{{ sorgu_yorumu }}</p></div>
@@ -1598,7 +1611,8 @@ def performans():
     seri_listesi = []
     for hisse in portfoy:
         try:
-            fiyatlar = cacheli_gecmis(f"{hisse['sembol']}.IS", period=donem, auto_adjust=True)["Close"].dropna().astype(float)
+            sembol = normalize_bist_sembol(hisse.get("sembol"))
+            fiyatlar = cacheli_gecmis(f"{sembol}.IS", period=donem, auto_adjust=True)["Close"].dropna().astype(float)
             if len(fiyatlar) > 1 and float(fiyatlar.iloc[0]) > 0:
                 agirlik = (float(hisse.get("adet", 0)) * float(hisse.get("alis_fiyati", 0))) / toplam if toplam else 0
                 seri_listesi.append((fiyatlar / float(fiyatlar.iloc[0]) * agirlik, fiyatlar))
@@ -1606,7 +1620,7 @@ def performans():
             continue
     if seri_listesi:
         uzunluk = min(len(seri) for seri, _ in seri_listesi)
-        performans_serisi = sum((seri.tail(uzunluk) for seri, _ in seri_listesi))
+        performans_serisi = sum((seri.tail(uzunluk).reset_index(drop=True) for seri, _ in seri_listesi))
         performans_serisi = performans_serisi / float(performans_serisi.iloc[0]) * 100
         minimum, maksimum = float(performans_serisi.min()), float(performans_serisi.max())
         aralik = max(0.01, maksimum - minimum)
@@ -1615,13 +1629,15 @@ def performans():
     else:
         noktalar, son_performans = "0,50 100,50", 0.0
     mevcut_deger = round(sum(float(h.get("adet", 0)) * float(h.get("alis_fiyati", 0)) for h in portfoy), 2)
+    grafik_durumu = "Aktif fiyat verisi bulunamadı; sembolü ve işlem kaydını kontrol edin." if not seri_listesi else ""
     return render_template_string("""
     <h1>Portföy Performansı</h1><p>Başlangıç maliyeti: {{ toplam|round(2) }} TL | Dönem getirisi: {{ son_performans }}%</p>
     <p><a href="/performans?donem=1mo">1 Ay</a> | <a href="/performans?donem=3mo">3 Ay</a> | <a href="/performans?donem=6mo">6 Ay</a> | <a href="/performans?donem=1y">1 Yıl</a></p>
     <svg viewBox="0 0 100 100" width="100%" height="240" style="background:#16213e"><polyline points="{{ noktalar }}" fill="none" stroke="#4caf50" stroke-width="2" /></svg>
     <p>Grafik, seçilen dönemdeki portföy hisselerinin ağırlıklı normalize getirisini gösterir.</p>
+    {% if grafik_durumu %}<p style="color:#ff9800">{{ grafik_durumu }}</p>{% endif %}
     <a href="/">Portföye dön</a>
-    """, toplam=toplam, noktalar=noktalar, son_performans=son_performans, mevcut_deger=mevcut_deger)
+    """, toplam=toplam, noktalar=noktalar, son_performans=son_performans, mevcut_deger=mevcut_deger, grafik_durumu=grafik_durumu)
 
 
 @app.route("/admin")
