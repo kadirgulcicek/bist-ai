@@ -662,6 +662,11 @@ HTML_PORTFOY = """
 <!DOCTYPE html>
 <html>
 <head><title>BIST AI - Portfoy</title><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#e94560">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BIST AI">
 <style>
 body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 .container{max-width:800px;margin:auto}
@@ -746,13 +751,28 @@ input{width:100%;padding:10px;margin:5px 0;border:none;border-radius:5px;backgro
 <a class="btn" href="/performans">Performans</a>
 <a class="btn" href="/temizle" style="background:#f44336" onclick="return confirm('Tum portfoy silinecek! Emin misiniz?')">Portfoyu Temizle</a>
 </div>
-</div></body></html>
+</div>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('/service-worker.js').catch(function (error) {
+      console.log('Service worker kaydi basarisiz:', error);
+    });
+  });
+}
+</script>
+</body></html>
 """
 
 HTML_SEKTOR = """
 <!DOCTYPE html>
 <html>
 <head><title>BIST AI - Sektor</title><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#e94560">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BIST AI">
 <style>
 body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 .container{max-width:800px;margin:auto}
@@ -789,13 +809,28 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 {% if en_iyi %}<p class="pozitif">Guclu sektor: {{ en_iyi }}</p>{% endif %}
 {% if en_kotu %}<p class="negatif">Zayif sektor: {{ en_kotu }}</p>{% endif %}
 </div>
-</div></body></html>
+</div>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('/service-worker.js').catch(function (error) {
+      console.log('Service worker kaydi basarisiz:', error);
+    });
+  });
+}
+</script>
+</body></html>
 """
 
 HTML_RISK = """
 <!DOCTYPE html>
 <html>
 <head><title>BIST AI - Risk</title><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#e94560">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BIST AI">
 <style>
 body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 .container{max-width:900px;margin:auto}
@@ -1099,13 +1134,28 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 {% else %}
 <div class="uyari">Tahmin üretilemedi. Piyasa verisi bağlantısını ve sembol listesini kontrol edin.</div>
 {% endif %}
-</div></body></html>
+</div>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('/service-worker.js').catch(function (error) {
+      console.log('Service worker kaydi basarisiz:', error);
+    });
+  });
+}
+</script>
+</body></html>
 """
 
 HTML_SINYAL = """
 <!DOCTYPE html>
 <html>
 <head><title>BIST AI - Sinyaller</title><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#e94560">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BIST AI">
 <style>
 body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 .container{max-width:800px;margin:auto}
@@ -1161,13 +1211,28 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 {% else %}
 <div class="info-box"><p>Su an aktif sinyal yok.</p></div>
 {% endif %}
-</div></body></html>
+</div>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('/service-worker.js').catch(function (error) {
+      console.log('Service worker kaydi basarisiz:', error);
+    });
+  });
+}
+</script>
+</body></html>
 """
 
 HTML_PANEL = """
 <!DOCTYPE html>
 <html>
 <head><title>BIST AI - Panel</title><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#e94560">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BIST AI">
 <style>
 body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 .container{max-width:900px;margin:auto}
@@ -1230,7 +1295,17 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 {% if not sinyaller %}<p style="color:#b0bec5">Su an aktif sinyal yok.</p>{% endif %}
 </div>
 </div>
-</div></body></html>
+</div>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('/service-worker.js').catch(function (error) {
+      console.log('Service worker kaydi basarisiz:', error);
+    });
+  });
+}
+</script>
+</body></html>
 """
 
 HTML_CANLI = """
@@ -1238,6 +1313,11 @@ HTML_CANLI = """
 <html>
 <head><title>BIST AI - Canli</title><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#e94560">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BIST AI">
 <style>
 body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 .container{max-width:800px;margin:auto}
@@ -1379,6 +1459,11 @@ HTML_BILDIRIM = """
 <!DOCTYPE html>
 <html>
 <head><title>BIST AI - Bildirim</title><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#e94560">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BIST AI">
 <style>
 body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 .container{max-width:800px;margin:auto}
@@ -1439,7 +1524,17 @@ select{background:#0f3460;color:white;border:none;padding:8px 12px;border-radius
 </div>
 </form>
 </div>
-</div></body></html>
+</div>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('/service-worker.js').catch(function (error) {
+      console.log('Service worker kaydi basarisiz:', error);
+    });
+  });
+}
+</script>
+</body></html>
 """
 
 
@@ -1726,6 +1821,20 @@ def sektor():
         en_iyi=sektorler[0]["sektor"] if sektorler else None,
         en_kotu=sektorler[-1]["sektor"] if sektorler else None,
     )
+
+
+@app.route("/manifest.json")
+def manifest():
+    from flask import send_from_directory
+    return send_from_directory(".", "manifest.json", mimetype="application/manifest+json")
+
+
+@app.route("/service-worker.js")
+def service_worker():
+    from flask import send_from_directory
+    response = send_from_directory(".", "service-worker.js", mimetype="application/javascript")
+    response.headers["Cache-Control"] = "no-cache"
+    return response
 
 
 @app.route("/risk")
@@ -2136,5 +2245,5 @@ def panel_sayfasi():
 # ============================================
 if __name__ == "__main__":
     import os
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port, debug=False)
