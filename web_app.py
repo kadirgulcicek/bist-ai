@@ -544,13 +544,24 @@ def portfoy_veri_hazirla_icin(hisseler_listesi):
     for hisse in hisseler_listesi:
         try:
             sembol = normalize_bist_sembol(hisse.get("sembol"))
-            ticker = yf.Ticker(sembol + ".IS")
-            veri = ticker.history(period="5d")
-            if veri is None or len(veri) < 1:
+            alis_fiyati = float(hisse.get("alis_fiyati", 0) or 0)
+            adet = int(hisse.get("adet", 0) or 0)
+            if not sembol or adet <= 0 or alis_fiyati <= 0:
                 continue
-            guncel = float(veri["Close"].iloc[-1])
-            maliyet = hisse["adet"] * hisse["alis_fiyati"]
-            deger = hisse["adet"] * guncel
+
+            guncel = alis_fiyati
+            try:
+                ticker = yf.Ticker(sembol + ".IS")
+                veri = ticker.history(period="5d")
+                if veri is not None and len(veri) >= 1:
+                    son_fiyat = float(veri["Close"].iloc[-1])
+                    if son_fiyat > 0:
+                        guncel = son_fiyat
+            except Exception:
+                guncel = alis_fiyati
+
+            maliyet = adet * alis_fiyati
+            deger = adet * guncel
             kar = deger - maliyet
             kar_yuzde = (kar / maliyet) * 100 if maliyet > 0 else 0
             stop_loss = float(hisse.get("stop_loss", 0) or 0)
@@ -559,14 +570,16 @@ def portfoy_veri_hazirla_icin(hisseler_listesi):
                 hedef_durumu = "STOP-LOSS"
             elif kar_hedef and guncel >= kar_hedef:
                 hedef_durumu = "KAR HEDEFI"
+            elif guncel == alis_fiyati:
+                hedef_durumu = "BEKLENIYOR"
             else:
                 hedef_durumu = "Normal"
             toplam_maliyet += maliyet
             toplam_deger += deger
             hisseler.append({
                 "sembol": sembol,
-                "adet": hisse["adet"],
-                "alis": f"{hisse['alis_fiyati']:.2f}",
+                "adet": adet,
+                "alis": f"{alis_fiyati:.2f}",
                 "guncel": f"{guncel:.2f}",
                 "kar_yuzde": f"{kar_yuzde:+.2f}",
                 "renk": "positive" if kar >= 0 else "negative",
