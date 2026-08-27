@@ -17,6 +17,7 @@ MANUEL_DOSYA = "manual_ekle.json"
 HTTP_TIMEOUT = 8
 HALKARZ_URL = "https://halkarz.com/"
 HALKARZ_CACHE_TTL = 900
+HARIC_TUTULAN_HALKARZ_SEMBOLLERI = {"INTET"}
 _halkarz_onbellek = {"zaman": 0, "kayitlar": []}
 KAYNAKLAR = {
     "KAP": "https://www.kap.org.tr/tr/rss/bildirim",
@@ -147,6 +148,8 @@ def _halkarz_detaylarini_oku(zorla=False):
         metin = _metni_temizle(html)
         sembol = _alan_bul(metin, (r"Bist Kodu\s*:\s*([A-Z]{3,6})\b",))
         if not _sembol_temizle(sembol):
+            return None
+        if _sembol_temizle(sembol) in HARIC_TUTULAN_HALKARZ_SEMBOLLERI:
             return None
         sirket = _alan_bul(html, (r"<h1[^>]*>\s*(.*?)\s*</h1>",))
         sirket = _metni_temizle(sirket)
@@ -291,9 +294,15 @@ def _kaynaklari_oku():
 
 
 def halka_arzlari_guncelle(zorla=False):
-    veriler = _yukle()
+    veriler = {
+        adres: veri for adres, veri in _yukle().items()
+        if _sembol_temizle(veri.get("sembol")) not in HARIC_TUTULAN_HALKARZ_SEMBOLLERI
+    }
     eski_veriler = veriler
-    halkarz_kayitlari = _halkarz_detaylarini_oku(zorla=zorla)
+    halkarz_kayitlari = [
+        veri for veri in _halkarz_detaylarini_oku(zorla=zorla)
+        if _sembol_temizle(veri.get("sembol")) not in HARIC_TUTULAN_HALKARZ_SEMBOLLERI
+    ]
     if not halkarz_kayitlari:
         halkarz_kayitlari = [v for v in veriler.values() if v.get("kaynak") == "HalkArz.com"]
     veriler = {}

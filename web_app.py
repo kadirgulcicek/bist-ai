@@ -37,6 +37,7 @@ from ensemble_model import EnsembleTahminci
 from auth import KullaniciYoneticisi
 from piyasa_istihbarati import hisse_istihbarat_analizi
 from halka_arz import halka_arz_ozeti
+from temel_analiz import temel_analiz
 
 
 def portfoy_risk_hesapla(portfoy_hisseler):
@@ -106,14 +107,16 @@ def hamburger_menu_ekle(response):
     if not response.content_type or "text/html" not in response.content_type:
         return response
     html = response.get_data(as_text=True)
+    html = re.sub(r'<a\b[^>]*>\s*HalkArz\.com detayını aç\s*</a>', '', html, flags=re.IGNORECASE)
+    html = re.sub(r'HalkArz\.com detayını aç', '', html, flags=re.IGNORECASE)
     menu_eslesmesi = re.search(r'<div class="menu">(.*?)</div>', html, flags=re.DOTALL)
     if menu_eslesmesi:
         aktif_yol = request.path
         menu_linkleri = (
             ("/", "Portfoy"), ("/panel", "Panel"), ("/sektor", "Sektor"),
-            ("/risk", "Risk"), ("/ai", "AI"), ("/istihbarat", "Istihbarat"),
-            ("/sinyal", "Sinyal"), ("/tarama", "Tarama"),
-            ("/halka-arz", "Halka Arz"), ("/canli", "Canli"),
+            ("/risk", "Risk"), ("/temel", "Temel Analiz"), ("/ai", "AI"),
+            ("/istihbarat", "Istihbarat"), ("/sinyal", "Sinyal"),
+            ("/tarama", "Tarama"), ("/halka-arz", "Halka Arz"), ("/canli", "Canli"),
             ("/hedef", "Hedef"), ("/bildirim", "Bildirim"), ("/cikis", "Cikis"),
         )
         menu = "".join(
@@ -122,6 +125,7 @@ def hamburger_menu_ekle(response):
         )
         html = html[:menu_eslesmesi.start(1)] + menu + html[menu_eslesmesi.end(1):]
     if '<div class="menu">' not in html:
+        response.set_data(html)
         return response
     def header_saatini_canli_yap(eslesme):
         aktif_sayaci = eslesme.group(2) or ""
@@ -135,11 +139,51 @@ def hamburger_menu_ekle(response):
     )
     stil = """
 <style>
-.header{padding-left:64px;box-sizing:border-box}
-.menu-toggle{position:fixed;top:14px;left:14px;z-index:30;width:42px;height:38px;background:#e94560;color:white;border:0;border-radius:7px;font-size:24px;line-height:1;cursor:pointer}
-.menu{display:none;position:fixed;top:60px;left:14px;z-index:20;width:min(240px,calc(100vw - 28px));padding:10px;background:#16213e;border:1px solid rgba(255,255,255,.12);border-radius:8px;box-shadow:0 12px 28px rgba(0,0,0,.35);flex-direction:column;gap:6px;margin:0}
-.menu.acik{display:flex}.menu a{width:100%;box-sizing:border-box;flex:none;text-align:left;padding:10px 12px}
-.menu-backdrop{display:none;position:fixed;inset:0;z-index:15;background:rgba(0,0,0,.3)}.menu-backdrop.acik{display:block}
+:root{
+  --bg: #07111f;
+  --bg-soft: #0f1d2c;
+  --panel: rgba(17, 24, 39, 0.96);
+  --panel-2: rgba(15, 30, 46, 0.96);
+  --card: #101d2d;
+  --card-strong: #13273e;
+  --line: rgba(148, 163, 184, 0.18);
+  --primary: #e94560;
+  --primary-2: #ff6b7f;
+  --accent: #4ade80;
+    --accent-warm: #f4c95d;
+  --warning: #fbbf24;
+  --text: #eef6ff;
+  --muted: #9bb0c7;
+  --shadow: 0 16px 40px rgba(2, 6, 23, 0.42);
+}
+html{min-height:100%;background:#07111f}
+html,body{background:linear-gradient(135deg,#07111f 0%,#0c1b2b 52%,#182232 100%);color:var(--text);font-family:"Trebuchet MS","Segoe UI",sans-serif}
+body{min-height:100vh;margin:0;padding:24px;line-height:1.5;background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);background-size:36px 36px}
+*{box-sizing:border-box}
+a{transition:color .2s ease,background .2s ease,border-color .2s ease,transform .2s ease}
+button,.btn,a{touch-action:manipulation}
+.container{max-width:1180px;margin:0 auto;animation:page-enter .45s ease both}
+.header{padding:18px 22px 18px 72px;box-sizing:border-box;background:linear-gradient(135deg,rgba(22,33,62,.97),rgba(15,52,96,.9));border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);backdrop-filter:blur(14px)}
+.header h1{color:#f4f7fb;font-size:22px;font-weight:800;letter-spacing:.04em}
+.header small{color:var(--muted);letter-spacing:.12em}
+.menu-toggle{position:fixed;top:18px;left:18px;z-index:30;width:44px;height:42px;background:linear-gradient(135deg,var(--primary),var(--primary-2));color:white;border:0;border-radius:11px;font-size:22px;line-height:1;cursor:pointer;box-shadow:0 8px 18px rgba(233,69,96,.35);transition:transform .2s ease,box-shadow .2s ease}
+.menu-toggle:hover{transform:translateY(-2px);box-shadow:0 12px 24px rgba(233,69,96,.42)}
+.menu{display:none;position:fixed;top:60px;left:14px;z-index:20;width:min(250px,calc(100vw - 28px));padding:10px;background:rgba(17,24,39,.98);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);flex-direction:column;gap:6px;margin:0}
+.menu.acik{display:flex}.menu a{width:100%;box-sizing:border-box;flex:none;text-align:left;padding:10px 12px;border-radius:8px;color:var(--text);text-decoration:none;background:rgba(255,255,255,.02);border:1px solid transparent;font-weight:600}
+.menu a:hover,.menu a.active{background:linear-gradient(135deg,rgba(233,69,96,.18),rgba(17, 103, 171, .18));border-color:rgba(233,69,96,.35)}
+.menu-backdrop{display:none;position:fixed;inset:0;z-index:15;background:rgba(2,6,23,.45)}.menu-backdrop.acik{display:block}
+.card,.section,.stat-card,.summary-card,.metric-box,.panel,.form-box,.hero{background:linear-gradient(180deg,rgba(19,31,47,.98),rgba(18,24,35,.96));border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
+input,select,textarea{background:rgba(13,29,46,.92);border:1px solid rgba(148,163,184,.2);color:var(--text);border-radius:10px;padding:11px 12px;transition:border-color .2s ease,box-shadow .2s ease,background .2s ease}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent-warm);box-shadow:0 0 0 3px rgba(244,201,93,.16);background:#10243a}
+button,.btn{background:linear-gradient(135deg,var(--primary),var(--primary-2));border:0;color:white;border-radius:10px;padding:11px 16px;font-weight:700;cursor:pointer;box-shadow:0 10px 20px rgba(233,69,96,.28);transition:transform .2s ease,filter .2s ease,box-shadow .2s ease}
+button:hover,.btn:hover{filter:brightness(1.06);transform:translateY(-1px);box-shadow:0 13px 24px rgba(233,69,96,.34)}
+table{border:1px solid var(--line);box-shadow:var(--shadow)}
+th{letter-spacing:.04em}
+tr{transition:background .18s ease}
+tr:hover{background:rgba(244,201,93,.06)}
+@keyframes page-enter{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@media (max-width: 640px){body{padding:14px}.header{padding:16px 16px 16px 60px}.header p{font-size:11px}.card,.section,.stat-card,.summary-card,.metric-box,.panel,.form-box,.hero{border-radius:12px}table{display:block;overflow-x:auto;white-space:nowrap}}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 </style>
 """
     script = """
@@ -174,6 +218,7 @@ def hamburger_menu_ekle(response):
     html = html.replace('<div class="menu">', '<div class="menu">', 1)
     html = html.replace('</body>', script + '</body>', 1)
     response.set_data(html)
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
     return response
 
 
@@ -608,18 +653,19 @@ HTML_LOGIN = """
 <html>
 <head><title>BIST AI - Giris</title><meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:20px}
-.container{max-width:400px;margin:auto;padding-top:50px}
-.logo{text-align:center;margin-bottom:30px}
-.logo h1{color:#e94560;font-size:32px;margin:0}
-.logo p{color:#b0bec5;margin-top:5px}
-.form-box{background:#16213e;padding:30px;border-radius:10px}
-.form-box h2{margin-top:0;text-align:center}
-input{width:100%;padding:12px;margin:8px 0;border:none;border-radius:5px;background:#0f3460;color:white;box-sizing:border-box}
-.btn{width:100%;padding:12px;background:#e94560;color:white;border:none;border-radius:5px;cursor:pointer;font-size:16px;margin-top:10px}
-.switch{text-align:center;margin-top:15px;color:#b0bec5}
-.switch a{color:#e94560;text-decoration:none}
-.hata{background:#f44336;padding:10px;border-radius:5px;margin-bottom:15px;text-align:center}
+:root{--bg:#07111f;--panel:#111b2c;--panel-2:#0d1b2a;--primary:#e94560;--primary-2:#ff6b7f;--line:rgba(148,163,184,.18);--text:#eef6ff;--muted:#9bb0c7}
+body{font-family:Segoe UI, Arial, sans-serif;background:radial-gradient(circle at top, #112339 0%, #081522 42%, #050d18 100%);color:var(--text);margin:0;padding:20px}
+.container{max-width:420px;margin:80px auto 0}
+.logo{text-align:center;margin-bottom:26px}
+.logo h1{margin:0;color:#f7f9fc;font-size:36px;letter-spacing:.08em;font-weight:800}
+.logo p{margin:8px 0 0;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;font-size:12px}
+.form-box{background:linear-gradient(180deg,rgba(17,27,44,.96),rgba(10,18,28,.96));padding:30px;border-radius:18px;border:1px solid var(--line);box-shadow:0 18px 42px rgba(2,6,23,.45)}
+.form-box h2{margin:0 0 20px;text-align:center;font-size:28px}
+input{width:100%;padding:14px 12px;margin:8px 0;border:1px solid rgba(148,163,184,.2);border-radius:10px;background:#0d1b2a;color:var(--text);box-sizing:border-box;font-size:15px}
+.btn{width:100%;padding:14px 12px;border:none;border-radius:10px;background:linear-gradient(135deg,var(--primary),var(--primary-2));color:white;cursor:pointer;font-size:16px;font-weight:700;margin-top:12px;box-shadow:0 12px 24px rgba(233,69,96,.22)}
+.switch{text-align:center;margin-top:16px;color:var(--muted);font-size:14px}
+.switch a{color:#ffd1db;text-decoration:none;font-weight:700}
+.hata{background:rgba(220,38,38,.18);border:1px solid rgba(248,113,113,.35);padding:10px;border-radius:10px;margin-bottom:15px;text-align:center;color:#ffe4e6;font-weight:600}
 </style></head>
 <body>
 <div class="container">
@@ -642,17 +688,19 @@ HTML_KAYIT = """
 <html>
 <head><title>BIST AI - Kayit</title><meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:20px}
-.container{max-width:400px;margin:auto;padding-top:50px}
-.logo{text-align:center;margin-bottom:30px}
-.logo h1{color:#e94560;font-size:32px;margin:0}
-.form-box{background:#16213e;padding:30px;border-radius:10px}
-.form-box h2{margin-top:0;text-align:center}
-input{width:100%;padding:12px;margin:8px 0;border:none;border-radius:5px;background:#0f3460;color:white;box-sizing:border-box}
-.btn{width:100%;padding:12px;background:#e94560;color:white;border:none;border-radius:5px;cursor:pointer;font-size:16px;margin-top:10px}
-.switch{text-align:center;margin-top:15px;color:#b0bec5}
-.switch a{color:#e94560;text-decoration:none}
-.hata{background:#f44336;padding:10px;border-radius:5px;margin-bottom:15px;text-align:center}
+:root{--bg:#07111f;--panel:#111b2c;--line:rgba(148,163,184,.18);--primary:#e94560;--primary-2:#ff6b7f;--text:#eef6ff;--muted:#9bb0c7}
+body{font-family:Segoe UI, Arial, sans-serif;background:radial-gradient(circle at top, #112339 0%, #081522 42%, #050d18 100%);color:var(--text);margin:0;padding:20px}
+.container{max-width:420px;margin:80px auto 0}
+.logo{text-align:center;margin-bottom:26px}
+.logo h1{margin:0;color:#f7f9fc;font-size:36px;letter-spacing:.08em;font-weight:800}
+.logo p{margin:8px 0 0;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;font-size:12px}
+.form-box{background:linear-gradient(180deg,rgba(17,27,44,.96),rgba(10,18,28,.96));padding:30px;border-radius:18px;border:1px solid var(--line);box-shadow:0 18px 42px rgba(2,6,23,.45)}
+.form-box h2{margin:0 0 20px;text-align:center;font-size:28px}
+input{width:100%;padding:14px 12px;margin:8px 0;border:1px solid rgba(148,163,184,.2);border-radius:10px;background:#0d1b2a;color:var(--text);box-sizing:border-box;font-size:15px}
+.btn{width:100%;padding:14px 12px;border:none;border-radius:10px;background:linear-gradient(135deg,var(--primary),var(--primary-2));color:white;cursor:pointer;font-size:16px;font-weight:700;margin-top:12px;box-shadow:0 12px 24px rgba(233,69,96,.22)}
+.switch{text-align:center;margin-top:16px;color:var(--muted);font-size:14px}
+.switch a{color:#ffd1db;text-decoration:none;font-weight:700}
+.hata{background:rgba(220,38,38,.18);border:1px solid rgba(248,113,113,.35);padding:10px;border-radius:10px;margin-bottom:15px;text-align:center;color:#ffe4e6;font-weight:600}
 </style></head>
 <body>
 <div class="container">
@@ -1027,7 +1075,7 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}.con
 </style></head><body><div class="container"><div class="header"><div><h1>BIST AI</h1><small>SİZİN İÇİN ÇALIŞIYORUZ</small></div><p id="canli-saat" aria-live="polite"></p></div>
 <div class="menu"><a href="/">Portfoy</a><a href="/panel">Panel</a><a href="/sektor">Sektor</a><a href="/risk">Risk</a><a href="/ai">AI</a><a href="/istihbarat">Istihbarat</a><a href="/halka-arz" class="active">Halka Arz</a><a href="/hedef">Hedef</a></div>
 <div class="card"><h2>Halka Arz Takibi</h2><p class="muted">Son 6 halka arz. Piyasa başlangıcından itibaren 14 gün takip edilir.</p><p><b>{{ veri_sayisi }}</b> kayıt | <b>{{ fiyatli_veri_sayisi }}</b> son fiyat mevcut</p><a href="/halka-arz?yenile=1" style="display:inline-block;background:#e94560;color:white;text-decoration:none;padding:9px 14px;border-radius:5px;font-weight:bold">Veriyi şimdi yenile</a><p class="muted">Son kontrol: {{ son_guncelleme }}</p></div>
-{% for h in son_alti %}<div class="card {% if h.durum == '14 GUN TAKIP' %}takip{% elif h.durum == 'BEKLENIYOR' %}bekliyor{% endif %}"><h3>{{ h.sembol }} | {{ h.sirket }}</h3><div class="grid"><div class="metric"><span>Halka arz tarihi</span><b>{{ h.talep_tarihi }}</b></div><div class="metric"><span>Arz fiyatı</span><b>{{ h.arz_fiyati }}</b></div><div class="metric"><span>İskonto</span><b>{{ h.iskonto }}</b></div><div class="metric"><span>İlk işlem tarihi</span><b>{{ h.borsa_baslangic }}</b></div><div class="metric"><span>Fiyat değişimi</span><b>{% if h.fiyat_degisim != 'Veri yok' %}{{ h.fiyat_degisim }}%{% else %}Veri yok{% endif %}</b></div></div><p class="muted">İlk işlem fiyatı: {{ h.ilk_islem_fiyati }} | Güncel fiyat: {{ h.guncel_fiyat }} | Durum: {{ h.durum }}{% if h.takip_bitis %} | Takip bitişi: {{ h.takip_bitis }}{% endif %}</p><div class="news"><a href="{{ h.link }}" target="_blank">HalkArz.com detayını aç</a></div></div>{% else %}<div class="card"><p>Güncel halka arz duyurusu bulunamadı.</p></div>{% endfor %}
+{% for h in son_alti %}<div class="card {% if h.durum == '14 GUN TAKIP' %}takip{% elif h.durum == 'BEKLENIYOR' %}bekliyor{% endif %}"><h3>{{ h.sembol }} | {{ h.sirket }}</h3><div class="grid"><div class="metric"><span>Halka arz tarihi</span><b>{{ h.talep_tarihi }}</b></div><div class="metric"><span>Arz fiyatı</span><b>{{ h.arz_fiyati }}</b></div><div class="metric"><span>İskonto</span><b>{{ h.iskonto }}</b></div><div class="metric"><span>İlk işlem tarihi</span><b>{{ h.borsa_baslangic }}</b></div><div class="metric"><span>Fiyat değişimi</span><b>{% if h.fiyat_degisim != 'Veri yok' %}{{ h.fiyat_degisim }}%{% else %}Veri yok{% endif %}</b></div></div><p class="muted">İlk işlem fiyatı: {{ h.ilk_islem_fiyati }} | Güncel fiyat: {{ h.guncel_fiyat }} | Durum: {{ h.durum }}{% if h.takip_bitis %} | Takip bitişi: {{ h.takip_bitis }}{% endif %}</p></div>{% else %}<div class="card"><p>Güncel halka arz duyurusu bulunamadı.</p></div>{% endfor %}
 </div></body></html>
 <script>
 function cihazinSaatiniGoster() {
@@ -1909,6 +1957,218 @@ def risk():
         return f"Risk analizi yapilamadi. Hata: {str(e)[:80]}"
 
 
+@app.route("/temel")
+def temel_analiz_sayfasi():
+    kullanici = aktif_kullanici_al()
+    if not kullanici:
+        return redirect(url_for("giris"))
+
+    sembol = normalize_bist_sembol(request.args.get("sembol", "") or "")
+    if not sembol:
+        sembol = "THYAO"
+
+    analiz = temel_analiz(sembol) or {
+        "sembol": sembol,
+        "fiyat": 0,
+        "degisim": 0,
+        "fk": None,
+        "pddd": None,
+        "temettu_verimi": None,
+        "market_cap_milyar": 0,
+        "gelir_buyumesi": None,
+        "kar_buyumesi": None,
+        "kar_marji": None,
+        "roe": None,
+        "sektor": "Bilinmiyor",
+        "endustri": "Bilinmiyor",
+        "genel_degerlendirme": "Veri bulunamadi",
+        "tarih": datetime.now().strftime("%d.%m.%Y %H:%M"),
+    }
+
+    def deger_ve_aciklama(etiket, deger, aciklama, birim=""):
+        if deger is None:
+            deger_yazi = "Veri yok"
+        elif birim:
+            deger_yazi = f"{deger}{birim}"
+        else:
+            deger_yazi = str(deger)
+        return {"etiket": etiket, "deger": deger_yazi, "aciklama": aciklama}
+
+    metrikler = [
+        deger_ve_aciklama(
+            "F/K",
+            analiz.get("fk"),
+            "Hisse fiyatının net karına göre ne kadar pahalı/ucuz olduğunu gösterir. Düşükse genelde daha uygun fiyatlanmış olabilir.",
+            ""
+        ),
+        deger_ve_aciklama(
+            "F/K (Forward)",
+            analiz.get("fk_forward"),
+            "Gelecek yıldaki kar beklentisine göre fiyatın oranı. Gelecek büyüme güçlü ise bu oran daha yüksek olabilir.",
+            ""
+        ),
+        deger_ve_aciklama(
+            "P/B",
+            analiz.get("pddd"),
+            "Fiyatın defter değerine oranıdır. 1'in altı çok güçlü değerlenme, 3 civarı normal/olumlu olabilir.",
+            ""
+        ),
+        deger_ve_aciklama(
+            "FD/FAVÖK",
+            analiz.get("fd_favok"),
+            "Şirketin değerinin operasyonel karına oranı. Düşükse şirket daha ucuza alınıyor olabilir.",
+            ""
+        ),
+        deger_ve_aciklama(
+            "Temettü verimi",
+            analiz.get("temettu_verimi"),
+            "Şirketin kârından hissedaraya dağıtılan temettü oranı. Yüksek temettü, gelir odaklı yatırım için önemlidir.",
+            "%"
+        ),
+        deger_ve_aciklama(
+            "ROE",
+            analiz.get("roe"),
+            "Öz kaynak kârlılığı. Yüksek ROE, şirketin sermayeyi verimli kullandığını gösterir.",
+            "%"
+        ),
+        deger_ve_aciklama(
+            "Kar marjı",
+            analiz.get("kar_marji"),
+            "Satıştan ne kadar kâr kaldığını gösterir. Yüksek marj, rekabet gücü ve verimlilik demektir.",
+            "%"
+        ),
+        deger_ve_aciklama(
+            "Borç / Öz kaynak",
+            analiz.get("borc_ozkaynak"),
+            "Şirketin borcunun öz kaynak içindeki ağırlığı. Düşük değer daha güvenli kabul edilir.",
+            ""
+        ),
+        deger_ve_aciklama(
+            "Gelir büyümesi",
+            analiz.get("gelir_buyumesi"),
+            "Şirketin gelirinin yıllık olarak ne kadar büyüdüğünü gösterir. Güçlü büyüme, uzun vadeli değeri artırabilir.",
+            "%"
+        ),
+        deger_ve_aciklama(
+            "Kar büyümesi",
+            analiz.get("kar_buyumesi"),
+            "Şirketin kârının büyüme hızı. Gelir büyümesi kadar önemli bir göstergedir; veri yoksa bu alanda net bilgi bulunamadı.",
+            "%"
+        ),
+        deger_ve_aciklama(
+            "52 haftalık yüksek",
+            analiz.get("hafta_52_yuksek"),
+            "Son 52 haftadaki en yüksek fiyat. Hisse bu seviyeye yakınsa güçlü görünüm olabilir.",
+            ""
+        ),
+        deger_ve_aciklama(
+            "52 haftalık düşük",
+            analiz.get("hafta_52_dusuk"),
+            "Son 52 haftadaki en düşük fiyat. Bu seviyelere yakınsa belirli bir değerleme olabilir.",
+            ""
+        ),
+    ]
+
+    if analiz.get("fk") is not None and analiz.get("pddd") is not None and analiz.get("roe") is not None:
+        kisa_degerlendirme = (
+            "Bu hisse için temel görünüm şu: "
+            f"F/K {analiz.get('fk')}, P/B {analiz.get('pddd')} ve ROE %{analiz.get('roe')} ile "
+            "şirketin değerleme ve kârlılık profilini birlikte değerlendiriyoruz."
+        )
+    else:
+        kisa_degerlendirme = "Bu hisse için bazı temel veriler eksik; değeri ve kârlılığı tüm veriler birlikte değerlendirmek daha doğru olur."
+
+    return render_template_string("""
+    <!DOCTYPE html>
+    <html lang="tr">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Temel Analiz - {{ analiz.sembol }}</title>
+        <link rel="manifest" href="/manifest.json">
+        <meta name="theme-color" content="#e94560">
+        <style>
+            body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
+            .container{max-width:1100px;margin:auto}
+            .header{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 16px;background:linear-gradient(135deg,#16213e,#0f3460);border-radius:8px;margin-bottom:15px;position:sticky;top:10px;z-index:10}
+            .header h1{margin:0;color:#e94560;font-size:20px}
+            .header p{margin:0;color:#dfeaff;font-size:12px;text-align:right;white-space:nowrap}
+            .header small{display:block;color:#b0bec5;font-size:10px;margin-top:3px;letter-spacing:.08em}
+            .menu{display:flex;gap:8px;margin:15px 0;flex-wrap:wrap}
+            .menu a{flex:1;min-width:90px;padding:8px;background:#0f3460;color:white;text-decoration:none;border-radius:5px;text-align:center;font-size:13px}
+            .menu a.active{background:#e94560}
+            .card{background:#16213e;border:1px solid rgba(255,255,255,.05);border-radius:12px;padding:18px;margin-bottom:18px}
+            .topbar{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+            .metric{background:#1e293b;border-radius:10px;padding:12px}
+            .metric .label{color:#94a3b8;font-size:12px;text-transform:uppercase}
+            .metric .value{font-size:24px;font-weight:700;margin-top:8px}
+            .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:12px}
+            .metric-box{background:#1e293b;border-radius:10px;padding:12px}
+            .metric-box .label{font-size:12px;text-transform:uppercase;color:#94a3b8;margin-bottom:8px}
+            .metric-box .value{font-size:24px;font-weight:700;margin-bottom:8px}
+            .metric-box .desc{font-size:12px;line-height:1.5;color:#dbeafe}
+            form{display:flex;gap:10px;flex-wrap:wrap}
+            input{flex:1;min-width:180px;border:1px solid rgba(148,163,184,.3);background:#0f3460;color:white;padding:10px 12px;border-radius:8px}
+            button{background:#e94560;color:white;border:0;border-radius:8px;padding:10px 20px;cursor:pointer;font-weight:700}
+            .pill{display:inline-block;padding:6px 12px;border-radius:999px;background:rgba(34,197,94,.15);color:#bbf7d0;font-size:12px;font-weight:700}
+            .muted{color:#b0bec5}
+            .top-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+            a.inline-link{color:#7dd3fc;text-decoration:none}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header"><div><h1>BIST AI</h1><small>SİZİN İÇİN ÇALIŞIYORUZ</small></div><p>{{ tarih }}</p></div>
+            <div class="menu">
+                <a href="/">Portfoy</a>
+                <a href="/panel">Panel</a>
+                <a href="/sektor">Sektor</a>
+                <a href="/risk">Risk</a>
+                <a href="/temel" class="active">Temel Analiz</a>
+                <a href="/ai">AI</a>
+                <a href="/istihbarat">Istihbarat</a>
+                <a href="/sinyal">Sinyal</a>
+                <a href="/canli">Canli</a>
+                <a href="/hedef">Hedef</a>
+                <a href="/bildirim">Bildirim</a>
+            </div>
+
+            <div class="card">
+                <form method="GET" action="/temel">
+                    <input type="text" name="sembol" value="{{ analiz.sembol }}" placeholder="Hisse sembolü (örn: THYAO)">
+                    <button type="submit">Sorgula</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <div class="topbar">
+                    <div class="metric"><div class="label">Sembol</div><div class="value">{{ analiz.sembol }}</div></div>
+                    <div class="metric"><div class="label">Fiyat</div><div class="value">{{ '%.2f' % analiz.fiyat }} ₺</div></div>
+                    <div class="metric"><div class="label">Günlük değişim</div><div class="value">{{ '%.2f' % analiz.degisim }}%</div></div>
+                    <div class="metric"><div class="label">Piyasa değeri</div><div class="value">{{ '%.2f' % analiz.market_cap_milyar }} B</div></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="pill">{{ analiz.genel_degerlendirme }}</div>
+                <p><strong>Hızlı yorum:</strong> {{ kisa_degerlendirme }}</p>
+                <p class="muted">Son güncelleme: {{ analiz.tarih }}</p>
+                <div class="grid">
+                    {% for metrik in metrikler %}
+                    <div class="metric-box">
+                        <div class="label">{{ metrik.etiket }}</div>
+                        <div class="value">{{ metrik.deger }}</div>
+                        <div class="desc">{{ metrik.aciklama }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+    """, analiz=analiz, sembol=sembol, tarih=datetime.now().strftime("%d.%m.%Y %H:%M"), metrikler=metrikler, kisa_degerlendirme=kisa_degerlendirme)
+
+
 @app.route("/ai")
 def ai_tahmin_sayfasi():
     try:
@@ -2003,7 +2263,9 @@ def halka_arz_sayfasi():
         sonuc = halka_arz_ozeti(zorla=request.args.get("yenile") == "1")
     except Exception:
         sonuc = {"tum": [], "son_alti": [], "takip": [], "beklenen": [], "son_guncelleme": datetime.now().strftime("%d.%m.%Y %H:%M")}
-    return render_template_string(HTML_HALKA_ARZ, **sonuc)
+    response = make_response(render_template_string(HTML_HALKA_ARZ, **sonuc))
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    return response
 
 
 @app.route("/sinyal")
