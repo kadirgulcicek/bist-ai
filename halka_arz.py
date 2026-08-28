@@ -17,7 +17,7 @@ MANUEL_DOSYA = "manual_ekle.json"
 HTTP_TIMEOUT = 8
 HALKARZ_URL = "https://halkarz.com/"
 HALKARZ_CACHE_TTL = 900
-HARIC_TUTULAN_HALKARZ_SEMBOLLERI = {"INTET"}
+HARIC_TUTULAN_HALKARZ_SEMBOLLERI = set()
 _halkarz_onbellek = {"zaman": 0, "kayitlar": []}
 KAYNAKLAR = {
     "KAP": "https://www.kap.org.tr/tr/rss/bildirim",

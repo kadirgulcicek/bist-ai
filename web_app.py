@@ -119,7 +119,7 @@ def hamburger_menu_ekle(response):
         aktif_yol = request.path
         menu_linkleri = (
             ("/", "Portfoy"), ("/panel", "Panel"), ("/sektor", "Sektor"),
-            ("/risk", "Risk"), ("/teknik", "Teknik Analiz"), ("/temel", "Temel Analiz"), ("/ai", "AI"),
+            ("/risk", "Risk"), ("/teknik", "Teknik Analiz"), ("/temel", "Temel Analiz"), ("/ai", "Yapay Zeka"),
             ("/istihbarat", "Istihbarat"), ("/sinyal", "Sinyal"),
             ("/tarama", "Tarama"), ("/halka-arz", "Halka Arz"), ("/canli", "Canli"),
             ("/hedef", "Hedef"), ("/bildirim", "Bildirim"), ("/cikis", "Cikis"),
@@ -186,7 +186,7 @@ table{border:1px solid var(--line);box-shadow:var(--shadow)}
 th{letter-spacing:.04em}
 tr{transition:background .18s ease}
 tr:hover{background:rgba(244,201,93,.06)}
-@keyframes page-enter{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes page-enter{from{opacity:0}to{opacity:1}}
 @media (max-width: 640px){body{padding:14px}.header{padding:16px 16px 16px 60px}.header p{font-size:11px}.card,.section,.stat-card,.summary-card,.metric-box,.panel,.form-box,.hero{border-radius:12px}table{display:block;overflow-x:auto;white-space:nowrap}}
 @media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 </style>
@@ -196,11 +196,11 @@ tr:hover{background:rgba(244,201,93,.06)}
 (function(){
     function menuKur(){
         var menu=document.querySelector('.menu');
-        if(!menu || document.querySelector('.menu-toggle')) return;
-        var toggle=document.createElement('button');
-        toggle.className='menu-toggle'; toggle.type='button'; toggle.setAttribute('aria-label','Menüyü aç'); toggle.setAttribute('aria-expanded','false'); toggle.textContent='☰';
-        var backdrop=document.createElement('div'); backdrop.className='menu-backdrop';
-        document.body.append(toggle,backdrop);
+        var toggle=document.querySelector('.menu-toggle');
+        var backdrop=document.querySelector('.menu-backdrop');
+        if(!menu || !toggle || !backdrop || toggle.dataset.menuHazir) return;
+        toggle.dataset.menuHazir='1';
+        document.body.appendChild(menu);
         function kapat(){menu.classList.remove('acik');backdrop.classList.remove('acik');toggle.setAttribute('aria-label','Menüyü aç');toggle.setAttribute('aria-expanded','false');}
         toggle.addEventListener('click',function(){var acik=!menu.classList.contains('acik');menu.classList.toggle('acik',acik);backdrop.classList.toggle('acik',acik);toggle.setAttribute('aria-label',acik?'Menüyü kapat':'Menüyü aç');toggle.setAttribute('aria-expanded',String(acik));});
         backdrop.addEventListener('click',kapat);
@@ -220,6 +220,13 @@ tr:hover{background:rgba(244,201,93,.06)}
 </script>
 """
     html = html.replace('</head>', stil + '</head>', 1)
+    html = re.sub(
+        r'(<body\b[^>]*>)',
+        r'\1<button class="menu-toggle" type="button" aria-label="Menüyü aç" aria-expanded="false">☰</button><div class="menu-backdrop"></div>',
+        html,
+        count=1,
+        flags=re.IGNORECASE,
+    )
     html = html.replace('<div class="menu">', '<div class="menu">', 1)
     html = html.replace('</body>', script + '</body>', 1)
     response.set_data(html)
