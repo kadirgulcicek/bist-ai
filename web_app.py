@@ -771,7 +771,7 @@ input{width:100%;padding:10px;margin:5px 0;border:none;border-radius:5px;backgro
 <div class="menu">
 <a href="/" class="active">Portfoy</a><a href="/panel">Panel</a><a href="/sektor">Sektor</a>
 <a href="/risk">Risk</a><a href="/ai">AI</a><a href="/istihbarat">Istihbarat</a><a href="/sinyal">Sinyal</a>
-<a href="/canli">Canli</a><a href="/hedef">Hedef</a><a href="/bildirim">Bildirim</a>
+<a href="/hedef">Hedef</a><a href="/bildirim">Bildirim</a>
 </div>
 <div class="stats">
 <div class="stat-card"><div>Deger</div><div class="stat-value">{{ toplam_deger }} TL</div></div>
@@ -871,7 +871,7 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 <div class="menu">
 <a href="/">Portfoy</a><a href="/panel">Panel</a><a href="/sektor" class="active">Sektor</a>
 <a href="/risk">Risk</a><a href="/ai">AI</a><a href="/istihbarat">Istihbarat</a><a href="/sinyal">Sinyal</a>
-<a href="/canli">Canli</a><a href="/hedef">Hedef</a><a href="/bildirim">Bildirim</a>
+<a href="/hedef">Hedef</a><a href="/bildirim">Bildirim</a>
 </div>
 <h2>Sektor Performansi</h2>
 {% for s in sektorler %}
@@ -966,7 +966,7 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 <div class="menu">
 <a href="/">Portfoy</a><a href="/panel">Panel</a><a href="/sektor">Sektor</a>
 <a href="/risk" class="active">Risk</a><a href="/ai">AI</a><a href="/istihbarat">Istihbarat</a><a href="/sinyal">Sinyal</a>
-<a href="/canli">Canli</a><a href="/hedef">Hedef</a><a href="/bildirim">Bildirim</a>
+<a href="/hedef">Hedef</a><a href="/bildirim">Bildirim</a>
 <a href="/cikis" class="cikis">Cikis</a>
 </div>
 
@@ -1163,7 +1163,7 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 <div class="menu">
 <a href="/">Portfoy</a><a href="/panel">Panel</a><a href="/sektor">Sektor</a>
 <a href="/risk">Risk</a><a href="/ai" class="active">AI</a><a href="/sinyal">Sinyal</a>
-<a href="/canli">Canli</a><a href="/hedef">Hedef</a><a href="/bildirim">Bildirim</a>
+<a href="/hedef">Hedef</a><a href="/bildirim">Bildirim</a>
 </div>
 <div class="info-box">
 <h3>Ensemble AI Model</h3>
@@ -1263,7 +1263,7 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 <div class="menu">
 <a href="/">Portfoy</a><a href="/panel">Panel</a><a href="/sektor">Sektor</a>
 <a href="/risk">Risk</a><a href="/ai">AI</a><a href="/istihbarat">Istihbarat</a><a href="/sinyal" class="active">Sinyal</a>
-<a href="/canli">Canli</a><a href="/hedef">Hedef</a><a href="/bildirim">Bildirim</a>
+<a href="/hedef">Hedef</a><a href="/bildirim">Bildirim</a>
 </div>
 {% if sinyaller %}
 {% for s in sinyaller %}
@@ -1336,7 +1336,7 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 <div class="menu">
 <a href="/">Portfoy</a><a href="/panel" class="active">Panel</a><a href="/sektor">Sektor</a>
 <a href="/risk">Risk</a><a href="/ai">AI</a><a href="/istihbarat">Istihbarat</a><a href="/sinyal">Sinyal</a>
-<a href="/canli">Canli</a><a href="/hedef">Hedef</a><a href="/bildirim">Bildirim</a>
+<a href="/hedef">Hedef</a><a href="/bildirim">Bildirim</a>
 </div>
 <a href="/panel" class="yenile-btn">Yenile</a>
 <div class="dashboard">
@@ -1429,7 +1429,7 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
 <div class="menu">
 <a href="/">Portfoy</a><a href="/panel">Panel</a><a href="/sektor">Sektor</a>
 <a href="/risk">Risk</a><a href="/ai">AI</a><a href="/istihbarat">Istihbarat</a><a href="/sinyal">Sinyal</a>
-<a href="/canli">Canli</a><a href="/hedef" class="active">Hedef</a><a href="/bildirim">Bildirim</a>
+<a href="/hedef" class="active">Hedef</a><a href="/bildirim">Bildirim</a>
 <a href="/cikis" class="cikis">Cikis</a>
 </div>
 <form method="GET" action="/hedef" class="sorgu-form">
@@ -1515,7 +1515,7 @@ select{background:#0f3460;color:white;border:none;padding:8px 12px;border-radius
 <div class="menu">
 <a href="/">Portfoy</a><a href="/panel">Panel</a><a href="/sektor">Sektor</a>
 <a href="/risk">Risk</a><a href="/ai">AI</a><a href="/istihbarat">Istihbarat</a><a href="/sinyal">Sinyal</a>
-<a href="/canli">Canli</a><a href="/hedef">Hedef</a>
+<a href="/hedef">Hedef</a>
 <a href="/bildirim" class="active">Bildirim</a><a href="/cikis" class="cikis">Cikis</a>
 </div>
 {% if mesaj %}<div class="{{ sinif }}">{{ mesaj }}</div>{% endif %}
@@ -2117,7 +2117,6 @@ def temel_analiz_sayfasi():
                 <a href="/ai">AI</a>
                 <a href="/istihbarat">Istihbarat</a>
                 <a href="/sinyal">Sinyal</a>
-                <a href="/canli">Canli</a>
                 <a href="/hedef">Hedef</a>
                 <a href="/bildirim">Bildirim</a>
             </div>
