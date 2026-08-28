@@ -108,8 +108,12 @@ def hamburger_menu_ekle(response):
     if not response.content_type or "text/html" not in response.content_type:
         return response
     html = response.get_data(as_text=True)
-    html = re.sub(r'<a\b[^>]*>\s*HalkArz\.com detayını aç\s*</a>', '', html, flags=re.IGNORECASE)
-    html = re.sub(r'HalkArz\.com detayını aç', '', html, flags=re.IGNORECASE)
+    html = re.sub(
+        r'<a\b[^>]*\bhref\s*=\s*["\']https?://(?:www\.)?halkarz\.com/[^"\']*["\'][^>]*>.*?</a>',
+        '',
+        html,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
     menu_eslesmesi = re.search(r'<div class="menu">(.*?)</div>', html, flags=re.DOTALL)
     if menu_eslesmesi:
         aktif_yol = request.path
