@@ -121,7 +121,7 @@ def hamburger_menu_ekle(response):
             ("/", "Portfoy"), ("/panel", "Panel"), ("/sektor", "Sektor"),
             ("/risk", "Risk"), ("/teknik", "Teknik Analiz"), ("/temel", "Temel Analiz"), ("/ai", "Yapay Zeka"),
             ("/istihbarat", "Istihbarat"), ("/sinyal", "Sinyal"),
-            ("/tarama", "Tarama"), ("/halka-arz", "Halka Arz"), ("/canli", "Canli"),
+            ("/tarama", "Tarama"), ("/halka-arz", "Halka Arz"),
             ("/hedef", "Hedef"), ("/bildirim", "Bildirim"), ("/cikis", "Cikis"),
         )
         menu = "".join(
@@ -168,14 +168,14 @@ body{min-height:100vh;margin:0;padding:24px;line-height:1.5;background-image:lin
 a{transition:color .2s ease,background .2s ease,border-color .2s ease,transform .2s ease}
 button,.btn,a{touch-action:manipulation}
 .container{max-width:1180px;margin:0 auto;animation:page-enter .45s ease both}
-.header{padding:18px 22px 18px 72px;box-sizing:border-box;background:linear-gradient(135deg,rgba(22,33,62,.97),rgba(15,52,96,.9));border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);backdrop-filter:blur(14px)}
+.header{padding:18px 22px 18px 72px;box-sizing:border-box;background:linear-gradient(135deg,rgba(22,33,62,.97),rgba(15,52,96,.9));border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);backdrop-filter:blur(14px)}
 .header h1{color:#f4f7fb;font-size:22px;font-weight:800;letter-spacing:.04em}
 .header small{color:var(--muted);letter-spacing:.12em}
-.menu-toggle{position:fixed;top:18px;left:18px;z-index:30;width:44px;height:42px;background:linear-gradient(135deg,var(--primary),var(--primary-2));color:white;border:0;border-radius:11px;font-size:22px;line-height:1;cursor:pointer;box-shadow:0 8px 18px rgba(233,69,96,.35);transition:transform .2s ease,box-shadow .2s ease}
+.menu-toggle{position:fixed;top:18px;left:18px;z-index:40;width:44px;height:42px;background:linear-gradient(135deg,var(--primary),var(--primary-2));color:white;border:0;border-radius:9px;font-size:22px;line-height:1;cursor:pointer;box-shadow:0 8px 18px rgba(233,69,96,.35);transition:transform .2s ease,box-shadow .2s ease}
 .menu-toggle:hover{transform:translateY(-2px);box-shadow:0 12px 24px rgba(233,69,96,.42)}
-.menu{display:none;position:fixed;top:60px;left:14px;z-index:20;width:min(250px,calc(100vw - 28px));padding:10px;background:rgba(17,24,39,.98);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);flex-direction:column;gap:6px;margin:0}
-.menu.acik{display:flex}.menu a{width:100%;box-sizing:border-box;flex:none;text-align:left;padding:10px 12px;border-radius:8px;color:var(--text);text-decoration:none;background:rgba(255,255,255,.02);border:1px solid transparent;font-weight:600}
-.menu a:hover,.menu a.active{background:linear-gradient(135deg,rgba(233,69,96,.18),rgba(17, 103, 171, .18));border-color:rgba(233,69,96,.35)}
+.menu{display:flex;position:fixed;top:70px;left:14px;z-index:30;width:min(270px,calc(100vw - 28px));max-height:calc(100vh - 88px);overflow-y:auto;padding:12px;background:rgba(12,24,40,.98);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);flex-direction:column;gap:5px;margin:0;opacity:0;visibility:hidden;pointer-events:none;transform:translateX(-18px);transition:opacity .2s ease,transform .2s ease,visibility .2s ease}
+.menu::before{content:'BIST AI  |  NAVIGASYON';padding:4px 8px 10px;color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.1em;border-bottom:1px solid var(--line);margin-bottom:4px}.menu.acik{opacity:1;visibility:visible;pointer-events:auto;transform:translateX(0)}.menu a{width:100%;box-sizing:border-box;flex:none;text-align:left;padding:11px 12px;border-radius:7px;color:var(--text);text-decoration:none;background:rgba(255,255,255,.02);border:1px solid transparent;font-weight:600}
+.menu a:hover,.menu a.active{background:linear-gradient(135deg,rgba(233,69,96,.18),rgba(17,103,171,.18));border-color:rgba(233,69,96,.35)}
 .menu-backdrop{display:none;position:fixed;inset:0;z-index:15;background:rgba(2,6,23,.45)}.menu-backdrop.acik{display:block}
 .card,.section,.stat-card,.summary-card,.metric-box,.panel,.form-box,.hero{background:linear-gradient(180deg,rgba(19,31,47,.98),rgba(18,24,35,.96));border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
 input,select,textarea{background:rgba(13,29,46,.92);border:1px solid rgba(148,163,184,.2);color:var(--text);border-radius:10px;padding:11px 12px;transition:border-color .2s ease,box-shadow .2s ease,background .2s ease}
@@ -187,7 +187,8 @@ th{letter-spacing:.04em}
 tr{transition:background .18s ease}
 tr:hover{background:rgba(244,201,93,.06)}
 @keyframes page-enter{from{opacity:0}to{opacity:1}}
-@media (max-width: 640px){body{padding:14px}.header{padding:16px 16px 16px 60px}.header p{font-size:11px}.card,.section,.stat-card,.summary-card,.metric-box,.panel,.form-box,.hero{border-radius:12px}table{display:block;overflow-x:auto;white-space:nowrap}}
+@media (min-width: 900px){body{padding:22px 28px 22px 294px}.container{max-width:1280px;margin:0}.menu-toggle,.menu-backdrop{display:none!important}.menu{top:18px;left:18px;bottom:18px;width:248px;max-height:none;padding:16px;opacity:1;visibility:visible;pointer-events:auto;transform:none;border-radius:12px}.menu::before{padding:4px 6px 14px;font-size:12px}.menu a{padding:12px}.header{padding-left:22px}.header h1{font-size:24px}}
+@media (max-width: 640px){body{padding:14px}.header{padding:16px 16px 16px 60px}.header p{font-size:11px}.card,.section,.stat-card,.summary-card,.metric-box,.panel,.form-box,.hero{border-radius:10px}table{display:block;overflow-x:auto;white-space:nowrap}}
 @media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 </style>
 """
@@ -201,6 +202,8 @@ tr:hover{background:rgba(244,201,93,.06)}
         if(!menu || !toggle || !backdrop || toggle.dataset.menuHazir) return;
         toggle.dataset.menuHazir='1';
         document.body.appendChild(menu);
+        menu.id='ana-navigasyon';
+        toggle.setAttribute('aria-controls','ana-navigasyon');
         function kapat(){menu.classList.remove('acik');backdrop.classList.remove('acik');toggle.setAttribute('aria-label','Menüyü aç');toggle.setAttribute('aria-expanded','false');}
         toggle.addEventListener('click',function(){var acik=!menu.classList.contains('acik');menu.classList.toggle('acik',acik);backdrop.classList.toggle('acik',acik);toggle.setAttribute('aria-label',acik?'Menüyü kapat':'Menüyü aç');toggle.setAttribute('aria-expanded',String(acik));});
         backdrop.addEventListener('click',kapat);
@@ -1381,60 +1384,6 @@ if ('serviceWorker' in navigator) {
 </body></html>
 """
 
-HTML_CANLI = """
-<!DOCTYPE html>
-<html>
-<head><title>BIST AI - Canli</title><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#e94560">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="BIST AI">
-<style>
-body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
-.container{max-width:800px;margin:auto}
-.header{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 16px;background:linear-gradient(135deg,#16213e,#0f3460);border-radius:8px;margin-bottom:15px;position:sticky;top:10px;z-index:10}
-.header h1{margin:0;color:#e94560;font-size:20px}
-.header p{margin:0;color:#dfeaff;font-size:12px;text-align:right;white-space:nowrap}
-.header small{display:block;color:#b0bec5;font-size:10px;margin-top:3px;letter-spacing:.08em}
-.menu{display:flex;gap:8px;margin:15px 0;flex-wrap:wrap}
-.menu a{flex:1;min-width:70px;padding:8px;background:#0f3460;color:white;text-decoration:none;border-radius:5px;text-align:center;font-size:13px}
-.menu a.active{background:#e94560}.menu a.cikis{background:#f44336}
-.canli-card{background:#16213e;padding:15px;margin:10px 0;border-radius:8px;display:flex;justify-content:space-between;align-items:center;border-left:4px solid #4caf50}
-.canli-card.negatif{border-left-color:#f44336}
-.sembol{font-weight:bold;font-size:18px}
-.fiyat{font-size:20px;font-weight:bold;margin-top:5px}
-.pozitif{color:#4caf50}.negatif{color:#f44336}
-.zaman{font-size:12px;color:#b0bec5}
-.alarm{background:#5c1f1f;padding:12px;border-radius:8px;margin:10px 0;border-left:4px solid #f44336}
-.info-box{background:#16213e;padding:15px;border-radius:8px;margin:15px 0;text-align:center}
-</style></head>
-<body>
-<div class="container">
-<div class="header"><div><h1>BIST AI</h1><small>SİZİN İÇİN ÇALIŞIYORUZ</small></div><p>{{ tarih }}</p></div>
-<div class="menu">
-<a href="/">Portfoy</a><a href="/panel">Panel</a><a href="/sektor">Sektor</a>
-<a href="/risk">Risk</a><a href="/ai">AI</a><a href="/istihbarat">Istihbarat</a><a href="/sinyal">Sinyal</a>
-<a href="/canli" class="active">Canli</a><a href="/cikis" class="cikis">Cikis</a>
-<a href="/hedef">Hedef</a><a href="/bildirim">Bildirim</a>
-</div>
-{% for alarm in alarmlar %}
-<div class="alarm"><b>ALARM!</b> {{ alarm.sembol }} - {{ alarm.fiyat }} TL - {{ alarm.aciklama }}</div>
-{% endfor %}
-<h2>Anlik Fiyatlar</h2>
-{% for h in fiyatlar %}
-<div class="canli-card {{ h.durum }}">
-<div><div class="sembol">{{ h.sembol }}</div><div class="zaman">{{ h.zaman }}</div></div>
-<div style="text-align:right"><div class="fiyat">{{ h.fiyat }} TL</div><div class="degisim {{ h.renk }}">{{ h.yon }} {{ h.degisim }}%</div></div>
-</div>
-{% endfor %}
-{% if not fiyatlar %}<div class="info-box"><p>Veriler yukleniyor...</p></div>{% endif %}
-</div>
-<script>setTimeout(function(){location.reload();},30000);</script>
-</body></html>
-"""
-
 HTML_HEDEF = """
 <!DOCTYPE html>
 <html>
@@ -2368,45 +2317,6 @@ def sinyal_sayfasi():
         return render_template_string(
             HTML_SINYAL, sinyaller=[], toplam_sinyal=0,
             tarih=datetime.now().strftime("%d.%m.%Y %H:%M"),
-        )
-
-
-@app.route("/canli")
-def canli_sayfasi():
-    kullanici = aktif_kullanici_al()
-    if not kullanici:
-        return redirect(url_for("giris"))
-    try:
-        from canli_takip import CanliTakip
-        takip = CanliTakip()
-        portfoy_hisseler = kullanici_yoneticisi.portfoy_al(kullanici)
-        takip_semboller = [h["sembol"] for h in portfoy_hisseler] or ["THYAO", "GARAN", "ASELS", "TUPRS", "EREGL"]
-        fiyatlar = []
-        alarmlar = []
-        for sembol in takip_semboller[:10]:
-            veri = takip.anlik_fiyat_al(sembol)
-            if not veri:
-                continue
-            degisim = veri["degisim"]
-            if degisim > 0.5:
-                renk, yon, durum = "pozitif", "YUKARI", ""
-            elif degisim < -0.5:
-                renk, yon, durum = "negatif", "ASAGI", "negatif"
-            else:
-                renk, yon, durum = "", "SIFIR", "beklemede"
-            fiyatlar.append({
-                "sembol": sembol, "fiyat": veri["fiyat"],
-                "degisim": degisim, "yon": yon, "renk": renk,
-                "durum": durum, "zaman": veri["zaman"],
-            })
-        return render_template_string(
-            HTML_CANLI, fiyatlar=fiyatlar, alarmlar=alarmlar,
-            tarih=datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
-        )
-    except Exception:
-        return render_template_string(
-            HTML_CANLI, fiyatlar=[], alarmlar=[],
-            tarih=datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
         )
 
 
