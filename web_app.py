@@ -39,7 +39,7 @@ from piyasa_istihbarati import hisse_istihbarat_analizi
 from halka_arz import halka_arz_ozeti
 from temel_analiz import temel_analiz
 from teknik_analiz import hisse_teknik_analiz
-from takas_analiz import takas_analiz, yabanci_orani_kaydet
+from takas_analiz import takas_analiz
 
 
 def portfoy_risk_hesapla(portfoy_hisseler):
@@ -1888,24 +1888,10 @@ def takas_analiz_sayfasi():
     <div class="metric"><small>10 gun / 3 ay hacim</small><strong>{% if analiz.hacim_orani is not none %}{{ analiz.hacim_orani }}x{% else %}Veri yok{% endif %}</strong><small>{{ analiz.hacim_yorum }}</small></div>
     <div class="metric"><small>Piyasa degeri</small><strong>{% if analiz.market_cap %}{{ '{:,.0f}'.format(analiz.market_cap) }}{% else %}Veri yok{% endif %}</strong></div>
     <div class="metric"><small>Serbest dolasim</small><strong>{% if analiz.free_float_oran is not none %}%{{ analiz.free_float_oran }}{% elif analiz.free_float %}{{ '{:,.0f}'.format(analiz.free_float) }}{% else %}Veri yok{% endif %}</strong><small>{% if analiz.free_float %}{{ '{:,.0f}'.format(analiz.free_float) }} adet{% endif %}</small></div>
-    </div></div><div class="card"><form method="post" action="/takas-guncelle"><input type="hidden" name="sembol" value="{{ sembol }}"><input type="number" name="yabanci_oran" min="0" max="100" step="0.01" placeholder="Yabanci oranini girin (%)" required><button type="submit">Orani Kaydet</button></form></div><div class="card note">Kaynak: {{ analiz.kaynak }} | Son guncelleme: {{ analiz.tarih }}. Manuel girisler sadece sizin hesabinizda 7 gun saklanir. Yahoo Finance, BIST icin yabanci takas oranini dogrudan saglamaz.</div>
+    </div></div>
     {% else %}<div class="card error">{{ sembol }} icin yeterli sahiplik veya hacim verisi alinamadi. Lutfen daha sonra tekrar deneyin.</div>{% endif %}
     </div></body></html>
     """, sembol=sembol, analiz=analiz)
-
-
-@app.route("/takas-guncelle", methods=["POST"])
-def takas_guncelle():
-    kullanici = aktif_kullanici_al()
-    if not kullanici:
-        return redirect(url_for("giris"))
-
-    sembol = normalize_bist_sembol(request.form.get("sembol", ""))
-    try:
-        yabanci_orani_kaydet(sembol, request.form.get("yabanci_oran", ""), kullanici)
-    except (TypeError, ValueError):
-        pass
-    return redirect(url_for("takas_analiz_sayfasi", sembol=sembol or "THYAO"))
 
 
 @app.route("/temel")
