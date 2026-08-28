@@ -119,5 +119,16 @@
       "sektor": "Diger",
       "kaynak": "Yfinance+Tahmin"
     }
+  ],
+  "FROTO": [
+    {
+      "sembol": "FROTO",
+      "tarih": "2026-08-28",
+      "yabanci_oran": 38.39,
+      "kurum_oran": 32.46,
+      "bireysel_oran": 29.15,
+      "sektor": "Otomotiv",
+      "kaynak": "Yfinance+Tahmin"
+    }
   ]
 }
