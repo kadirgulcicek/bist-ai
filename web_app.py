@@ -38,6 +38,7 @@ from auth import KullaniciYoneticisi
 from piyasa_istihbarati import hisse_istihbarat_analizi
 from halka_arz import halka_arz_ozeti
 from temel_analiz import temel_analiz
+from teknik_analiz import hisse_teknik_analiz
 
 
 def portfoy_risk_hesapla(portfoy_hisseler):
@@ -114,7 +115,7 @@ def hamburger_menu_ekle(response):
         aktif_yol = request.path
         menu_linkleri = (
             ("/", "Portfoy"), ("/panel", "Panel"), ("/sektor", "Sektor"),
-            ("/risk", "Risk"), ("/temel", "Temel Analiz"), ("/ai", "AI"),
+            ("/risk", "Risk"), ("/teknik", "Teknik Analiz"), ("/temel", "Temel Analiz"), ("/ai", "AI"),
             ("/istihbarat", "Istihbarat"), ("/sinyal", "Sinyal"),
             ("/tarama", "Tarama"), ("/halka-arz", "Halka Arz"), ("/canli", "Canli"),
             ("/hedef", "Hedef"), ("/bildirim", "Bildirim"), ("/cikis", "Cikis"),
@@ -1955,6 +1956,34 @@ def risk():
         )
     except Exception as e:
         return f"Risk analizi yapilamadi. Hata: {str(e)[:80]}"
+
+
+@app.route("/teknik")
+def teknik_analiz_sayfasi():
+    kullanici = aktif_kullanici_al()
+    if not kullanici:
+        return redirect(url_for("giris"))
+
+    sembol = normalize_bist_sembol(request.args.get("sembol", "") or "THYAO")
+    try:
+        analiz = hisse_teknik_analiz(f"{sembol}.IS")
+    except Exception:
+        app.logger.exception("Teknik analiz verisi alinamadi: %s", sembol)
+        analiz = None
+
+    return render_template_string("""
+    <!DOCTYPE html>
+    <html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teknik Analiz - {{ sembol }}</title><style>
+    body{font-family:Arial;background:#1a1a2e;color:#fff;margin:0;padding:15px}.container{max-width:1050px;margin:auto}.header,.card{background:#16213e;border-radius:8px;padding:18px;margin-bottom:15px}.header h1{margin:0;color:#e94560;font-size:22px}.menu{display:flex;gap:8px;margin:15px 0;flex-wrap:wrap}.menu a{flex:1;min-width:90px;padding:8px;background:#0f3460;color:#fff;text-decoration:none;border-radius:5px;text-align:center;font-size:13px}.menu a.active{background:#e94560}form{display:flex;gap:8px}input,button{padding:10px;border-radius:6px;border:0}input{flex:1;background:#0f3460;color:#fff;border:1px solid #35506d}button{background:#e94560;color:#fff;font-weight:bold;cursor:pointer}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}.metric{background:#1e293b;padding:14px;border-radius:6px}.metric small{color:#b0bec5;display:block}.metric strong{font-size:21px;display:block;margin-top:6px}.signal{padding:9px;background:#1e293b;border-left:3px solid #e94560;margin:7px 0;border-radius:4px}.error{color:#ffb4b4}
+    </style></head><body><div class="container"><div class="header"><h1>Teknik Analiz</h1><p>{{ sembol }} icin guncel gostergeler</p></div><div class="menu"></div>
+    <div class="card"><form method="get"><input name="sembol" value="{{ sembol }}" placeholder="Ornek: THYAO"><button type="submit">Analiz Et</button></form></div>
+    {% if analiz %}<div class="card"><h2>{{ analiz.Sembol }}: {{ analiz.Karar }}</h2><div class="grid">
+    {% for etiket, deger in [("Fiyat", analiz.Fiyat ~ " TL"), ("RSI", analiz.RSI), ("MACD", analiz.MACD), ("SMA 20", analiz["SMA 20"]), ("SMA 50", analiz["SMA 50"]), ("Destek", analiz.Destek), ("Direnc", analiz["Direnç"]), ("Skor", analiz.Skor)] %}<div class="metric"><small>{{ etiket }}</small><strong>{{ deger }}</strong></div>{% endfor %}
+    </div></div><div class="card"><h2>Sinyaller</h2>{% for sinyal in analiz.Sinyaller %}<div class="signal">{{ sinyal }}</div>{% endfor %}</div>
+    {% else %}<div class="card error">{{ sembol }} icin yeterli piyasa verisi alinamadi. Lutfen daha sonra tekrar deneyin.</div>{% endif %}
+    </div></body></html>
+    """, sembol=sembol, analiz=analiz)
 
 
 @app.route("/temel")
