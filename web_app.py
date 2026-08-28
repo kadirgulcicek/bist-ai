@@ -36,6 +36,7 @@ except ImportError:
 from ensemble_model import EnsembleTahminci
 from auth import KullaniciYoneticisi
 from piyasa_istihbarati import hisse_istihbarat_analizi
+from sosyal_medya import sosyal_medya_analiz
 from halka_arz import halka_arz_ozeti
 from temel_analiz import temel_analiz
 from teknik_analiz import hisse_teknik_analiz
@@ -1076,7 +1077,8 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}.con
 <div class="hero"><div class="muted">{{ analiz.sembol }} Birleşik Analiz</div><div class="score">{{ analiz.skor }}/10</div><b>{{ analiz.durum }}</b><div class="muted">Veri güveni: %{{ analiz.veri_guveni }} | {{ analiz.tarih }}</div></div>
 <div class="grid"><div class="metric"><span>Fiyat</span><b>{{ analiz.teknik.fiyat }} TL</b><small class="muted">EMA21: {{ analiz.teknik.ema21 }}</small></div><div class="metric"><span>RSI (14)</span><b>{{ analiz.teknik.rsi }}</b><small class="muted">MACD: {{ analiz.teknik.macd }}</small></div><div class="metric"><span>Hacim</span><b>{% if analiz.teknik.hacim_orani %}{{ analiz.teknik.hacim_orani }}x{% else %}VERI YOK{% endif %}</b><small class="muted">Yıllık volatilite: %{{ analiz.teknik.volatilite }}</small></div></div>
 <div class="card"><h3>Haber ve KAP</h3><p class="muted">{{ analiz.haber.kaynak }} | {{ analiz.haber.adet }} başlık | Net sinyal: {{ analiz.haber.net_sinyal }}</p>{% for baslik in analiz.haber.basliklar %}<div class="news">{{ baslik }}</div>{% else %}<p class="muted">Haber bulunamadı.</p>{% endfor %}</div>
-<div class="card"><h3>Kurum Verisi</h3><p>{{ analiz.kurum.durum }}</p><p class="muted">{{ analiz.kurum.kaynak }}</p><p class="muted">Takas ve kademe verisi lisanslı/API kaynağı olmadan hesaba katılmadı.</p></div>
+{% if sosyal %}<div class="card"><h3>Sosyal Medya ve Haber Duyarlılığı</h3><p class="muted">{{ sosyal.toplam_haber }} başlık | Pozitif: {{ sosyal.pozitif }} | Negatif: {{ sosyal.negatif }} | Net skor: {{ sosyal.sentiment_skoru }}</p><p><b>{{ sosyal.sentiment }}</b></p>{% for haber in sosyal.haberler[:5] %}<div class="news"><b>{{ haber.kaynak }}:</b> {{ haber.baslik }}</div>{% else %}<p class="muted">İlgili sosyal/haber başlığı bulunamadı.</p>{% endfor %}</div>{% endif %}
+<div class="card"><h3>Kurum Verisi</h3><p>{{ analiz.kurum.durum }}</p></div>
 {% endif %}{% else %}<div class="card">Analiz için bir hisse sembolü girin.</div>{% endif %}
 </div></body></html>
 """
@@ -2182,9 +2184,15 @@ def istihbarat_sayfasi():
         return redirect(url_for("giris"))
     sorgu = (request.args.get("sembol", "") or "").upper().replace(".IS", "")
     analiz = hisse_istihbarat_analizi(sorgu) if sorgu else None
+    try:
+        sosyal = sosyal_medya_analiz(sorgu) if sorgu else None
+    except Exception:
+        app.logger.exception("Sosyal medya analizi alinamadi: %s", sorgu)
+        sosyal = None
     return render_template_string(
         HTML_ISTIHBARAT,
         analiz=analiz,
+        sosyal=sosyal,
         sorgu=sorgu,
         tarih=datetime.now().strftime("%d.%m.%Y %H:%M"),
     )
