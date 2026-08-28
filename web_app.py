@@ -39,6 +39,7 @@ from piyasa_istihbarati import hisse_istihbarat_analizi
 from halka_arz import halka_arz_ozeti
 from temel_analiz import temel_analiz
 from teknik_analiz import hisse_teknik_analiz
+from takas_analiz import takas_analiz, yabanci_orani_kaydet
 
 
 def portfoy_risk_hesapla(portfoy_hisseler):
@@ -118,9 +119,9 @@ def hamburger_menu_ekle(response):
     if menu_eslesmesi:
         aktif_yol = request.path
         menu_linkleri = (
-            ("/", "Portfoy"), ("/panel", "Panel"), ("/sektor", "Sektor"),
+            ("/", "Portfoy"), ("/sektor", "Sektor"),
             ("/risk", "Risk"), ("/teknik", "Teknik Analiz"), ("/temel", "Temel Analiz"), ("/ai", "Yapay Zeka"),
-            ("/istihbarat", "Istihbarat"), ("/sinyal", "Sinyal"),
+            ("/istihbarat", "Istihbarat"), ("/takas", "Takas Analizi"), ("/sinyal", "Sinyal"),
             ("/tarama", "Tarama"), ("/halka-arz", "Halka Arz"),
             ("/hedef", "Hedef"), ("/bildirim", "Bildirim"), ("/cikis", "Cikis"),
         )
@@ -145,49 +146,47 @@ def hamburger_menu_ekle(response):
     stil = """
 <style>
 :root{
-  --bg: #07111f;
-  --bg-soft: #0f1d2c;
-  --panel: rgba(17, 24, 39, 0.96);
-  --panel-2: rgba(15, 30, 46, 0.96);
-  --card: #101d2d;
-  --card-strong: #13273e;
-  --line: rgba(148, 163, 184, 0.18);
-  --primary: #e94560;
-  --primary-2: #ff6b7f;
-  --accent: #4ade80;
-    --accent-warm: #f4c95d;
-  --warning: #fbbf24;
-  --text: #eef6ff;
-  --muted: #9bb0c7;
-  --shadow: 0 16px 40px rgba(2, 6, 23, 0.42);
+    --bg: #10171b;
+    --bg-soft: #182328;
+    --panel: #172126;
+    --panel-2: #1c292f;
+    --card: #172126;
+    --card-strong: #1c292f;
+    --line: #2d4047;
+    --primary: #14a99d;
+    --primary-2: #21c1b1;
+    --accent: #43b97a;
+    --accent-warm: #efaa45;
+    --warning: #efaa45;
+    --text: #edf5f5;
+    --muted: #a3b7ba;
+    --shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
 }
-html{min-height:100%;background:#07111f}
-html,body{background:linear-gradient(135deg,#07111f 0%,#0c1b2b 52%,#182232 100%);color:var(--text);font-family:"Trebuchet MS","Segoe UI",sans-serif}
-body{min-height:100vh;margin:0;padding:24px;line-height:1.5;background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);background-size:36px 36px}
+html{min-height:100%;background:var(--bg)}
+html,body{background:var(--bg);color:var(--text);font-family:"Segoe UI",Tahoma,sans-serif}
+body{min-height:100vh;margin:0;padding:28px;line-height:1.5;background-image:linear-gradient(90deg,rgba(163,183,186,.035) 1px,transparent 1px),linear-gradient(rgba(163,183,186,.035) 1px,transparent 1px);background-size:28px 28px}
 *{box-sizing:border-box}
-a{transition:color .2s ease,background .2s ease,border-color .2s ease,transform .2s ease}
+a{transition:color .16s ease,background .16s ease,border-color .16s ease}
 button,.btn,a{touch-action:manipulation}
 .container{max-width:1180px;margin:0 auto;animation:page-enter .45s ease both}
-.header{padding:18px 22px 18px 72px;box-sizing:border-box;background:linear-gradient(135deg,rgba(22,33,62,.97),rgba(15,52,96,.9));border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);backdrop-filter:blur(14px)}
-.header h1{color:#f4f7fb;font-size:22px;font-weight:800;letter-spacing:.04em}
+.header{padding:20px 24px 20px 72px;box-sizing:border-box;background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow)}
+.header h1{color:var(--text);font-size:23px;font-weight:750;letter-spacing:0}
 .header small{color:var(--muted);letter-spacing:.12em}
-.menu-toggle{position:fixed;top:18px;left:18px;z-index:40;width:44px;height:42px;background:linear-gradient(135deg,var(--primary),var(--primary-2));color:white;border:0;border-radius:9px;font-size:22px;line-height:1;cursor:pointer;box-shadow:0 8px 18px rgba(233,69,96,.35);transition:transform .2s ease,box-shadow .2s ease}
-.menu-toggle:hover{transform:translateY(-2px);box-shadow:0 12px 24px rgba(233,69,96,.42)}
-.menu{display:flex;position:fixed;top:70px;left:14px;z-index:30;width:min(270px,calc(100vw - 28px));max-height:calc(100vh - 88px);overflow-y:auto;padding:12px;background:rgba(12,24,40,.98);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);flex-direction:column;gap:5px;margin:0;opacity:0;visibility:hidden;pointer-events:none;transform:translateX(-18px);transition:opacity .2s ease,transform .2s ease,visibility .2s ease}
-.menu::before{content:'BIST AI  |  NAVIGASYON';padding:4px 8px 10px;color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.1em;border-bottom:1px solid var(--line);margin-bottom:4px}.menu.acik{opacity:1;visibility:visible;pointer-events:auto;transform:translateX(0)}.menu a{width:100%;box-sizing:border-box;flex:none;text-align:left;padding:11px 12px;border-radius:7px;color:var(--text);text-decoration:none;background:rgba(255,255,255,.02);border:1px solid transparent;font-weight:600}
-.menu a:hover,.menu a.active{background:linear-gradient(135deg,rgba(233,69,96,.18),rgba(17,103,171,.18));border-color:rgba(233,69,96,.35)}
-.menu-backdrop{display:none;position:fixed;inset:0;z-index:15;background:rgba(2,6,23,.45)}.menu-backdrop.acik{display:block}
-.card,.section,.stat-card,.summary-card,.metric-box,.panel,.form-box,.hero{background:linear-gradient(180deg,rgba(19,31,47,.98),rgba(18,24,35,.96));border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
-input,select,textarea{background:rgba(13,29,46,.92);border:1px solid rgba(148,163,184,.2);color:var(--text);border-radius:10px;padding:11px 12px;transition:border-color .2s ease,box-shadow .2s ease,background .2s ease}
-input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent-warm);box-shadow:0 0 0 3px rgba(244,201,93,.16);background:#10243a}
-button,.btn{background:linear-gradient(135deg,var(--primary),var(--primary-2));border:0;color:white;border-radius:10px;padding:11px 16px;font-weight:700;cursor:pointer;box-shadow:0 10px 20px rgba(233,69,96,.28);transition:transform .2s ease,filter .2s ease,box-shadow .2s ease}
-button:hover,.btn:hover{filter:brightness(1.06);transform:translateY(-1px);box-shadow:0 13px 24px rgba(233,69,96,.34)}
-table{border:1px solid var(--line);box-shadow:var(--shadow)}
-th{letter-spacing:.04em}
-tr{transition:background .18s ease}
-tr:hover{background:rgba(244,201,93,.06)}
+.menu-toggle{position:fixed;top:18px;left:18px;z-index:40;width:42px;height:42px;background:var(--primary);color:white;border:0;border-radius:7px;font-size:21px;line-height:1;cursor:pointer;box-shadow:0 5px 12px rgba(8,125,117,.24)}
+.menu-toggle:hover{background:#066b64}
+.menu{display:flex;position:fixed;top:68px;left:14px;z-index:30;width:min(224px,calc(100vw - 28px));max-height:calc(100vh - 86px);overflow-y:auto;padding:10px;background:#132a31;border:1px solid #31515a;border-radius:8px;box-shadow:0 16px 36px rgba(0,0,0,.36);flex-direction:column;gap:3px;margin:0;opacity:0;visibility:hidden;pointer-events:none;transform:translateX(-18px);transition:opacity .2s ease,transform .2s ease,visibility .2s ease}
+.menu::before{content:'BIST AI  |  ÇALIŞMA ALANI';padding:5px 7px 11px;color:#b8d1d5;font-size:10px;font-weight:700;letter-spacing:.08em;border-bottom:1px solid rgba(255,255,255,.16);margin-bottom:4px}.menu.acik{opacity:1;visibility:visible;pointer-events:auto;transform:translateX(0)}.menu a{width:100%;box-sizing:border-box;flex:none;text-align:left;padding:9px 10px;border-radius:6px;color:#eaf4f4;text-decoration:none;background:transparent;border-left:3px solid transparent;font-weight:600;font-size:14px}
+.menu a:hover,.menu a.active{background:rgba(255,255,255,.1);border-left-color:#41c2b6;color:#fff}
+.menu-backdrop{display:none;position:fixed;inset:0;z-index:15;background:rgba(23,43,54,.38)}.menu-backdrop.acik{display:block}
+.card,.section,.stat-card,.summary-card,.metric-box,.panel,.form-box,.hero{background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow)}
+.card,.section,.stat-card,.summary-card,.metric-box,.panel,.form-box{padding:18px}.card h2,.card h3,.section h2,.section h3{color:var(--text);margin-top:0} .muted{color:var(--muted)!important}
+input,select,textarea{background:#111b20;border:1px solid #38505a;color:var(--text);border-radius:6px;padding:10px 12px;transition:border-color .2s ease,box-shadow .2s ease}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(20,169,157,.18);background:#111b20}
+button,.btn{background:var(--primary);border:0;color:white;border-radius:6px;padding:10px 15px;font-weight:700;cursor:pointer;box-shadow:none;transition:background .16s ease}
+button:hover,.btn:hover{background:#066b64;transform:none;box-shadow:none}
+table{border:1px solid var(--line);box-shadow:none;border-radius:8px;overflow:hidden}th{letter-spacing:.04em;background:#203239;color:#c9d9da}td{border-color:var(--line)!important}tr{transition:background .18s ease}tr:hover{background:#203139}
 @keyframes page-enter{from{opacity:0}to{opacity:1}}
-@media (min-width: 900px){body{padding:22px 28px 22px 294px}.container{max-width:1280px;margin:0}.menu-toggle,.menu-backdrop{display:none!important}.menu{top:18px;left:18px;bottom:18px;width:248px;max-height:none;padding:16px;opacity:1;visibility:visible;pointer-events:auto;transform:none;border-radius:12px}.menu::before{padding:4px 6px 14px;font-size:12px}.menu a{padding:12px}.header{padding-left:22px}.header h1{font-size:24px}}
+@media (min-width: 900px){body{padding:22px 28px 22px 294px}.container{max-width:1280px;margin:0}.menu-toggle,.menu-backdrop{display:none!important}.menu{top:18px;left:18px;bottom:18px;width:248px;max-height:none;padding:16px;opacity:1;visibility:visible;pointer-events:auto;transform:none;border-radius:8px}.menu::before{padding:5px 6px 16px;font-size:11px}.menu a{padding:11px 12px}.header{padding-left:24px}.header h1{font-size:24px}}
 @media (max-width: 640px){body{padding:14px}.header{padding:16px 16px 16px 60px}.header p{font-size:11px}.card,.section,.stat-card,.summary-card,.metric-box,.panel,.form-box,.hero{border-radius:10px}table{display:block;overflow-x:auto;white-space:nowrap}}
 @media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 </style>
@@ -1300,90 +1299,6 @@ if ('serviceWorker' in navigator) {
 </body></html>
 """
 
-HTML_PANEL = """
-<!DOCTYPE html>
-<html>
-<head><title>BIST AI - Panel</title><meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#e94560">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="BIST AI">
-<style>
-body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}
-.container{max-width:900px;margin:auto}
-.header{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 16px;background:linear-gradient(135deg,#16213e,#0f3460);border-radius:8px;margin-bottom:15px;position:sticky;top:10px;z-index:10}
-.header h1{margin:0;color:#e94560;font-size:20px}
-.header p{margin:0;color:#dfeaff;font-size:12px;text-align:right;white-space:nowrap}
-.header small{display:block;color:#b0bec5;font-size:10px;margin-top:3px;letter-spacing:.08em}
-.menu{display:flex;gap:8px;margin:15px 0;flex-wrap:wrap}
-.menu a{flex:1;min-width:70px;padding:8px;background:#0f3460;color:white;text-decoration:none;border-radius:5px;text-align:center;font-size:13px}
-.menu a.active{background:#e94560}
-.dashboard{display:grid;grid-template-columns:1fr 1fr;gap:15px}
-.card{background:#16213e;padding:15px;border-radius:8px}
-.card h3{margin:0 0 10px 0;color:#4caf50;font-size:14px}
-.stat-row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #0f3460;font-size:13px}
-.stat-row:last-child{border-bottom:none}
-.pozitif{color:#4caf50}.negatif{color:#f44336}
-.sinyal-mini{background:#0f3460;padding:8px;margin:5px 0;border-radius:5px;font-size:13px}
-.sinyal-mini.al{border-left:3px solid #4caf50}
-.sinyal-mini.sat{border-left:3px solid #f44336}
-.yenile-btn{display:block;text-align:center;padding:12px;background:#e94560;color:white;text-decoration:none;border-radius:8px;margin:15px 0;font-weight:bold}
-</style></head>
-<body>
-<div class="container">
-<div class="header"><div><h1>BIST AI</h1><small>SİZİN İÇİN ÇALIŞIYORUZ</small></div><p>{{ tarih }}</p></div>
-<div class="menu">
-<a href="/">Portfoy</a><a href="/panel" class="active">Panel</a><a href="/sektor">Sektor</a>
-<a href="/risk">Risk</a><a href="/ai">AI</a><a href="/istihbarat">Istihbarat</a><a href="/sinyal">Sinyal</a>
-<a href="/hedef">Hedef</a><a href="/bildirim">Bildirim</a>
-</div>
-<a href="/panel" class="yenile-btn">Yenile</a>
-<div class="dashboard">
-<div class="card">
-<h3>Portfoy Durumu</h3>
-<div class="stat-row"><span>Toplam Deger:</span><b>{{ portfoy.toplam_deger }} TL</b></div>
-<div class="stat-row"><span>Hisse Sayisi:</span><b>{{ portfoy.hisse_sayisi }}</b></div>
-<div class="stat-row"><span>Toplam Kar:</span><b class="{{ portfoy.renk }}">{{ portfoy.toplam_kar }} TL</b></div>
-</div>
-<div class="card">
-<h3>Risk Puani</h3>
-<div class="stat-row"><span>Cesitlendirme:</span><b>{{ risk.puan }}/100</b></div>
-<div class="stat-row"><span>Durum:</span><b>{{ risk.durum }}</b></div>
-</div>
-<div class="card">
-<h3>AI En Iyi 3 (5 gun)</h3>
-{% for ai in ai_tahminleri[:3] %}
-<div class="stat-row"><span>{{ ai.sembol }}</span><b class="{{ ai.renk }}">{{ ai.degisim }}%</b></div>
-{% endfor %}
-</div>
-<div class="card">
-<h3>Sektor En Iyiler</h3>
-{% for s in sektorler[:3] %}
-<div class="stat-row"><span>{{ s.sektor }}</span><b class="{{ s.renk }}">{{ s.ortalama }}</b></div>
-{% endfor %}
-</div>
-<div class="card" style="grid-column:1 / -1">
-<h3>Aktif Sinyaller</h3>
-{% for s in sinyaller %}
-<div class="sinyal-mini {{ s.karar|lower }}"><b>{{ s.karar }}</b> - {{ s.sembol }} - {{ s.fiyat }} TL - {{ s.oncelik }}</div>
-{% endfor %}
-{% if not sinyaller %}<p style="color:#b0bec5">Su an aktif sinyal yok.</p>{% endif %}
-</div>
-</div>
-</div>
-<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', function () {
-    navigator.serviceWorker.register('/service-worker.js').catch(function (error) {
-      console.log('Service worker kaydi basarisiz:', error);
-    });
-  });
-}
-</script>
-</body></html>
-"""
-
 HTML_HEDEF = """
 <!DOCTYPE html>
 <html>
@@ -1946,6 +1861,53 @@ def teknik_analiz_sayfasi():
     """, sembol=sembol, analiz=analiz)
 
 
+@app.route("/takas")
+def takas_analiz_sayfasi():
+    kullanici = aktif_kullanici_al()
+    if not kullanici:
+        return redirect(url_for("giris"))
+
+    sembol = normalize_bist_sembol(request.args.get("sembol", "") or "THYAO")
+    try:
+        analiz = takas_analiz(sembol, kullanici=kullanici)
+    except Exception:
+        app.logger.exception("Takas analizi verisi alinamadi: %s", sembol)
+        analiz = None
+
+    return render_template_string("""
+    <!DOCTYPE html>
+    <html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Takas Analizi - {{ sembol }}</title><style>
+    body{font-family:Arial;background:#1a1a2e;color:#fff;margin:0;padding:15px}.container{max-width:1050px;margin:auto}.header,.card{background:#16213e;border-radius:8px;padding:18px;margin-bottom:15px}.header h1{margin:0;color:#e94560;font-size:22px}.menu{display:flex;gap:8px;margin:15px 0;flex-wrap:wrap}.menu a{flex:1;min-width:90px;padding:8px;background:#0f3460;color:#fff;text-decoration:none;border-radius:5px;text-align:center;font-size:13px}.menu a.active{background:#e94560}form{display:flex;gap:8px}input,button{padding:10px;border-radius:6px;border:0}input{flex:1;background:#0f3460;color:#fff;border:1px solid #35506d}button{background:#e94560;color:#fff;font-weight:bold;cursor:pointer}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}.metric{background:#1e293b;padding:14px;border-radius:6px}.metric small{color:#b0bec5;display:block}.metric strong{font-size:20px;display:block;margin-top:6px}.note{color:#b0bec5;font-size:13px;line-height:1.55}.error{color:#ffb4b4}
+    </style></head><body><div class="container"><div class="header"><h1>Takas Analizi</h1><p>{{ sembol }} sahiplik ve hacim ozeti</p></div><div class="menu"></div>
+    <div class="card"><form method="get"><input name="sembol" value="{{ sembol }}" placeholder="Ornek: THYAO"><button type="submit">Analiz Et</button></form></div>
+    {% if analiz %}<div class="card"><h2>{{ analiz.sembol }} | {{ analiz.degerlendirme }}</h2><div class="grid">
+    <div class="metric"><small>Kurumsal sahiplik</small><strong>{% if analiz.kurumsal_oran is not none %}%{{ analiz.kurumsal_oran }}{% else %}Veri yok{% endif %}</strong><small>{{ analiz.kurumsal_yorum }}</small></div>
+    <div class="metric"><small>Iceriden sahiplik</small><strong>{% if analiz.bireysel_oran is not none %}%{{ analiz.bireysel_oran }}{% else %}Veri yok{% endif %}</strong></div>
+    <div class="metric"><small>Yabanci takas payi</small><strong>{% if analiz.yabanci_oran is not none %}%{{ analiz.yabanci_oran }}{% else %}Veri yok{% endif %}</strong><small>{{ analiz.yabanci_yorum }}</small></div>
+    <div class="metric"><small>10 gun / 3 ay hacim</small><strong>{% if analiz.hacim_orani is not none %}{{ analiz.hacim_orani }}x{% else %}Veri yok{% endif %}</strong><small>{{ analiz.hacim_yorum }}</small></div>
+    <div class="metric"><small>Piyasa degeri</small><strong>{% if analiz.market_cap %}{{ '{:,.0f}'.format(analiz.market_cap) }}{% else %}Veri yok{% endif %}</strong></div>
+    <div class="metric"><small>Serbest dolasim</small><strong>{% if analiz.free_float_oran is not none %}%{{ analiz.free_float_oran }}{% elif analiz.free_float %}{{ '{:,.0f}'.format(analiz.free_float) }}{% else %}Veri yok{% endif %}</strong><small>{% if analiz.free_float %}{{ '{:,.0f}'.format(analiz.free_float) }} adet{% endif %}</small></div>
+    </div></div><div class="card"><form method="post" action="/takas-guncelle"><input type="hidden" name="sembol" value="{{ sembol }}"><input type="number" name="yabanci_oran" min="0" max="100" step="0.01" placeholder="Yabanci oranini girin (%)" required><button type="submit">Orani Kaydet</button></form></div><div class="card note">Kaynak: {{ analiz.kaynak }} | Son guncelleme: {{ analiz.tarih }}. Manuel girisler sadece sizin hesabinizda 7 gun saklanir. Yahoo Finance, BIST icin yabanci takas oranini dogrudan saglamaz.</div>
+    {% else %}<div class="card error">{{ sembol }} icin yeterli sahiplik veya hacim verisi alinamadi. Lutfen daha sonra tekrar deneyin.</div>{% endif %}
+    </div></body></html>
+    """, sembol=sembol, analiz=analiz)
+
+
+@app.route("/takas-guncelle", methods=["POST"])
+def takas_guncelle():
+    kullanici = aktif_kullanici_al()
+    if not kullanici:
+        return redirect(url_for("giris"))
+
+    sembol = normalize_bist_sembol(request.form.get("sembol", ""))
+    try:
+        yabanci_orani_kaydet(sembol, request.form.get("yabanci_oran", ""), kullanici)
+    except (TypeError, ValueError):
+        pass
+    return redirect(url_for("takas_analiz_sayfasi", sembol=sembol or "THYAO"))
+
+
 @app.route("/temel")
 def temel_analiz_sayfasi():
     kullanici = aktif_kullanici_al()
@@ -2378,90 +2340,6 @@ def bildirim_sayfasi():
         tarih=datetime.now().strftime("%d.%m.%Y %H:%M"),
         ayarlar=ayarlar, mesaj=mesaj, sinif=sinif,
     )
-
-
-@app.route("/panel")
-def panel_sayfasi():
-    try:
-        kullanici = aktif_kullanici_al()
-        if not kullanici:
-            return redirect(url_for("giris"))
-
-        portfoy_hisseler = kullanici_yoneticisi.portfoy_al(kullanici)
-        toplam_deger = sum(h["adet"] * h["alis_fiyati"] for h in portfoy_hisseler)
-        toplam_maliyet = toplam_deger
-        portfoy_ozet = {
-            "toplam_deger": f"{toplam_deger:,.2f}",
-            "hisse_sayisi": len(portfoy_hisseler),
-            "toplam_kar": "0.00",
-            "renk": "notr",
-        }
-
-        portfoy_data = [{
-            "sembol": h["sembol"], "adet": h["adet"],
-            "deger": h["adet"] * h["alis_fiyati"],
-            "sektor": HISSE_SEKTORLERI.get(h["sembol"], "Diger"),
-            "volatilite": 0,
-        } for h in portfoy_hisseler]
-
-        if portfoy_data and toplam_deger:
-            puan = cesitlendirme_puani(portfoy_data, toplam_deger)
-        else:
-            puan = 0
-        risk_ozet = {
-            "puan": puan,
-            "durum": "Iyi" if puan >= 70 else "Orta" if puan >= 40 else "Dikkat",
-        }
-
-        ai_tahminleri = []
-        try:
-            from ensemble_model import basit_tahmin
-            for sembol in ["THYAO", "GARAN", "ASELS", "TUPRS", "EREGL"]:
-                tahminler = basit_tahmin(sembol, 5)
-                if tahminler and len(tahminler) >= 2 and tahminler[0] > 0:
-                    degisim = ((tahminler[-1] - tahminler[0]) / tahminler[0]) * 100
-                    ai_tahminleri.append({
-                        "sembol": sembol,
-                        "degisim": f"{degisim:+.2f}",
-                        "renk": "pozitif" if degisim > 0 else "negatif",
-                    })
-            ai_tahminleri.sort(key=lambda x: float(x["degisim"]), reverse=True)
-        except Exception:
-            pass
-
-        sektorler = []
-        for ad, hisseler in sektor_analiz_yap().items():
-            if hisseler:
-                ortalama = sum(h["gunluk"] for h in hisseler) / len(hisseler)
-                sektorler.append({
-                    "sektor": ad,
-                    "ortalama": f"{ortalama:+.2f}%",
-                    "renk": "pozitif" if ortalama >= 0 else "negatif",
-                })
-        sektorler.sort(key=lambda x: float(x["ortalama"].rstrip("%")), reverse=True)
-
-        sinyaller = []
-        try:
-            from gelismis_kurallar import portfoy_analiz
-            for sinyal in portfoy_analiz()[:5]:
-                sinyaller.append({
-                    "sembol": sinyal["sembol"],
-                    "fiyat": sinyal["fiyat"],
-                    "karar": sinyal["karar"],
-                    "oncelik": sinyal.get("oncelik", "DUSUK"),
-                })
-        except Exception:
-            pass
-
-        return render_template_string(
-            HTML_PANEL,
-            tarih=datetime.now().strftime("%d.%m.%Y %H:%M"),
-            portfoy=portfoy_ozet, risk=risk_ozet,
-            ai_tahminleri=ai_tahminleri, sektorler=sektorler,
-            sinyaller=sinyaller,
-        )
-    except Exception as e:
-        return f"<h1>Hata</h1><p>{e}</p>"
 
 
 # ============================================
