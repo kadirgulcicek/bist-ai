@@ -30,6 +30,75 @@ def getir_openai_client():
         return None
 
 
+def _sayi(deger):
+    try:
+        return float(deger)
+    except (TypeError, ValueError):
+        return None
+
+
+def _degerlendirme_uret(bilgi: dict[str, Any]) -> str:
+    """Gercek gosterge degerlerinden ozgun bir degerlendirme metni kurar."""
+    karar = bilgi.get("karar", "BEKLE")
+    fiyat = _sayi(bilgi.get("fiyat"))
+    destekler = [d for d in (bilgi.get("destekler") or []) if _sayi(d) is not None]
+    direncler = [d for d in (bilgi.get("direncler") or []) if _sayi(d) is not None]
+    volatilite = _sayi(bilgi.get("volatilite"))
+    hacim_orani = _sayi(bilgi.get("hacim_orani"))
+    cross_yorum = bilgi.get("cross_yorum")
+
+    cumleler = []
+    if karar == "AL":
+        cumleler.append("Gostergelerin cogunlugu alis yonunde birlesiyor; kisa vadeli momentum olumlu gorunuyor.")
+    elif karar == "SAT":
+        cumleler.append("Gostergelerin cogunlugu satis yonunde birlesiyor; kisa vadede baski suruyor gorunuyor.")
+    else:
+        cumleler.append("Gostergeler karisik sinyaller veriyor; net bir yon henuz olusmus degil.")
+
+    if fiyat and destekler:
+        altindakiler = [d for d in destekler if d <= fiyat]
+        en_yakin_destek = max(altindakiler) if altindakiler else min(destekler)
+        mesafe = round((fiyat - en_yakin_destek) / fiyat * 100, 1)
+        if mesafe <= 2:
+            cumleler.append(f"Fiyat en yakin destege sadece %{mesafe} mesafede; bu seviyenin kirilmasi satis baskisini artirabilir.")
+        else:
+            cumleler.append(f"Fiyat en yakin destekten %{mesafe} uzakta, kisa vadede bu bolge tampon gorevi gorebilir.")
+
+    if fiyat and direncler:
+        ustundekiler = [d for d in direncler if d >= fiyat]
+        en_yakin_direnc = min(ustundekiler) if ustundekiler else max(direncler)
+        mesafe_d = round((en_yakin_direnc - fiyat) / fiyat * 100, 1)
+        if mesafe_d <= 2:
+            cumleler.append(f"Direnc sadece %{mesafe_d} yukarida; bu seviyenin asilmasi yukselisi hizlandirabilir.")
+        else:
+            cumleler.append(f"En yakin direnc %{mesafe_d} yukarida.")
+
+    if cross_yorum == "Golden Cross":
+        cumleler.append("Orta/uzun vadeli hareketli ortalamalar (Golden Cross) yukselis egilimini destekliyor.")
+    elif cross_yorum == "Death Cross":
+        cumleler.append("Orta/uzun vadeli hareketli ortalamalar (Death Cross) asagi yonlu egilimi destekliyor.")
+
+    if volatilite is not None:
+        if volatilite > 60:
+            cumleler.append(f"Yillik volatilite %{volatilite} ile yuksek; pozisyon boyutu kucuk tutulup zarar-durdur kullanilmasi onerilir.")
+        elif volatilite > 30:
+            cumleler.append(f"Volatilite %{volatilite} ile orta seviyede.")
+        else:
+            cumleler.append(f"Volatilite %{volatilite} ile nispeten dusuk, fiyat hareketleri daha kontrollu seyrediyor.")
+
+    if hacim_orani is not None:
+        if hacim_orani >= 1.5:
+            cumleler.append(f"Hacim ortalamanin {hacim_orani}x uzerinde; mevcut hareketin hacim teyidi guclu.")
+        elif hacim_orani < 0.8:
+            cumleler.append(f"Hacim ortalamanin altinda ({hacim_orani}x); mevcut hareketin hacim teyidi zayif.")
+
+    cumleler.append(
+        "Bu degerlendirme yatirim tavsiyesi degildir; pozisyon boyutu, zarar-durdur seviyeleri ve kendi "
+        "arastirmanizla birlikte ele alinmalidir."
+    )
+    return " ".join(cumleler)
+
+
 def _fallback_yorum(sembol: str, bilgi: dict[str, Any]) -> str:
     karar = bilgi.get("karar", "BEKLE")
     sebepler = [str(s) for s in bilgi.get("sebepler", [])[:5]]
@@ -61,9 +130,7 @@ def _fallback_yorum(sembol: str, bilgi: dict[str, Any]) -> str:
         f"Hacim orani: {bilgi.get('hacim_orani', 'N/A')}x.\n\n"
         f"SINYAL GEREKCELERI: {', '.join(sebepler) if sebepler else 'Ek gerekce tespit edilmedi.'}\n"
         f"FORMASYONLAR: {', '.join(bilgi.get('formasyonlar', [])) or 'Tespit edilmedi.'}\n\n"
-        "DEGERLENDIRME: Gosterge verileri birlikte okunmali; tek bir indikatore gore islem yapilmamali. "
-        "Fiyat destek altina inerse risk artar, direnç uzerinde kalicilik momentumun guclendigini gosterebilir. "
-        "Bu rapor yatirim tavsiyesi degildir; pozisyon boyutu, zarar durdur ve kendi arastirmaniz birlikte degerlendirilmelidir."
+        f"DEGERLENDIRME: {_degerlendirme_uret(bilgi)}"
     )
     return metin
 
