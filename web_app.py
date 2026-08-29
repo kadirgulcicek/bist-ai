@@ -1283,6 +1283,15 @@ body{font-family:Arial;background:#1a1a2e;color:white;margin:0;padding:15px}.con
 <div class="menu"><a href="/">Portfoy</a><a href="/panel">Panel</a><a href="/ai">AI</a><a href="/sinyal">Sinyal</a><a href="/tarama" class="active">Piyasa Tarama</a><a href="/halka-arz">Halka Arz</a></div>
 <div class="ozet"><div class="kutu"><span class="muted">Sembol havuzu</span><b>{{ tarama.sembol_sayisi }}</b></div><div class="kutu"><span class="muted">Verisi gelen</span><b>{{ tarama.veri_sayisi }}</b></div><div class="kutu"><span class="muted">Güçlü aday</span><b>{{ tarama.adaylar|length }}</b></div><div class="kutu"><span class="muted">Son tarama</span><b>{{ tarama.son_guncelleme[11:] }}</b></div></div>
 <p class="muted">Bu liste tavan garantisi vermez. Momentum, hacim ve trend birlikteliğine göre yüksek hareket adayı olarak sıralanır.</p><a class="yenile" href="/tarama?yenile=1">Piyasayı yeniden tara</a>
+<div class="kutu" style="margin:15px 0"><form method="get" style="display:flex;gap:8px;flex-wrap:wrap"><input name="ara" value="{{ arama_sorgu or '' }}" placeholder="Sembol ara (orn: RYGYO)" style="flex:1;min-width:160px;padding:10px;border:none;border-radius:5px;background:#0f3460;color:#fff" maxlength="6"><button type="submit" style="padding:10px 16px;background:#e94560;color:#fff;border:none;border-radius:5px;font-weight:bold;cursor:pointer">Ara</button></form>
+{% if arama_sorgu %}
+{% if arama_sonucu %}
+<table class="tablo" style="margin-top:12px"><thead><tr><th>Sembol</th><th>Fiyat</th><th>1 Gün</th><th>5 Gün</th><th>20 Gün</th><th>Hacim</th><th>Puan</th><th>Risk</th><th>AI</th></tr></thead><tbody>
+<tr><td><b>{{ arama_sonucu.sembol }}</b></td><td>{{ arama_sonucu.fiyat }} TL</td><td class="{% if arama_sonucu.gunluk >= 0 %}yuksek{% else %}izle{% endif %}">{{ '%+.2f'|format(arama_sonucu.gunluk) }}%</td><td>{{ '%+.2f'|format(arama_sonucu.getiri_5g) }}%</td><td>{{ '%+.2f'|format(arama_sonucu.getiri_20g) }}%</td><td>{{ arama_sonucu.hacim_orani }}x</td><td class="puan {{ arama_sonucu.aday_seviyesi|lower }}">{{ arama_sonucu.aday_puani }}/100</td><td class="{{ 'izle' if arama_sonucu.risk_uyarisi != 'Normal' else 'yuksek' }}">{{ arama_sonucu.risk_uyarisi }}</td><td><a class="ai" href="/ai?sembol={{ arama_sonucu.sembol }}">Yorumla</a></td></tr>
+</tbody></table>
+{% else %}<p class="muted" style="margin:12px 0 0">"{{ arama_sorgu }}" taranan {{ tarama.veri_sayisi }} sembol arasında bulunamadı. Sembolü kontrol edin veya "Piyasayı yeniden tara"yı deneyin.</p>{% endif %}
+{% endif %}
+</div>
 {% if tarama.adaylar %}<h2>En Güçlü Yükseliş Adayları</h2><table class="tablo"><thead><tr><th>Sembol</th><th>Fiyat</th><th>1 Gün</th><th>5 Gün</th><th>20 Gün</th><th>Hacim</th><th>Puan</th><th>Risk</th><th>AI</th></tr></thead><tbody>{% for h in tarama.adaylar %}<tr><td><b>{{ h.sembol }}</b></td><td>{{ h.fiyat }} TL</td><td class="{% if h.gunluk >= 0 %}yuksek{% else %}izle{% endif %}">{{ '%+.2f'|format(h.gunluk) }}%</td><td>{{ '%+.2f'|format(h.getiri_5g) }}%</td><td>{{ '%+.2f'|format(h.getiri_20g) }}%</td><td>{{ h.hacim_orani }}x</td><td class="puan {{ h.aday_seviyesi|lower }}">{{ h.aday_puani }}/100</td><td class="{{ 'izle' if h.risk_uyarisi != 'Normal' else 'yuksek' }}">{{ h.risk_uyarisi }}</td><td><a class="ai" href="/ai?sembol={{ h.sembol }}">Yorumla</a></td></tr>{% endfor %}</tbody></table>{% else %}<div class="kutu"><p>Henüz aday verisi alınamadı. Yenile düğmesini tekrar deneyin.</p></div>{% endif %}
 </div></body></html>
 """
@@ -2533,7 +2542,15 @@ def piyasa_tarama_sayfasi():
         tarama = piyasa_taramasi(force=request.args.get("yenile") == "1")
     except Exception:
         tarama = {"sonuclar": [], "adaylar": [], "sembol_sayisi": 0, "veri_sayisi": 0, "son_guncelleme": "Veri yok"}
-    return render_template_string(HTML_TARAMA, tarama=tarama)
+
+    arama_sorgu = (request.args.get("ara", "") or "").strip().upper().replace(".IS", "")
+    arama_sonucu = None
+    if arama_sorgu:
+        arama_sonucu = next(
+            (veri for veri in tarama.get("sonuclar", []) if veri.get("sembol") == arama_sorgu),
+            None,
+        )
+    return render_template_string(HTML_TARAMA, tarama=tarama, arama_sorgu=arama_sorgu, arama_sonucu=arama_sonucu)
 
 
 @app.route("/istihbarat")
