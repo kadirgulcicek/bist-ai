@@ -17,6 +17,10 @@ def guvenli_veri(sembol, period="6mo"):
         veri = ticker.history(period=period)
         if veri is None or len(veri) < 60:
             return None
+        # Yahoo bazen henuz kapanmamis/eksik son gunu NaN olarak doner; bunlari at.
+        veri = veri.dropna(subset=["Close", "Volume"])
+        if len(veri) < 60:
+            return None
         return veri
     except:
         return None

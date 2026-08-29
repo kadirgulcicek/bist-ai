@@ -164,7 +164,15 @@ class EnsembleTahminci:
         tahmin_scaled = self.ensemble_model.predict(X_test)
         tahmin = self.scaler_y.inverse_transform(tahmin_scaled.reshape(-1, 1)).flatten()
         gercek = self.scaler_y.inverse_transform(y_test.reshape(-1, 1)).flatten()
-        
+
+        # NaN/sonsuz tahminleri ayikla (bazi alt modeller bozuk deger uretebilir)
+        gecerli = np.isfinite(tahmin) & np.isfinite(gercek)
+        if gecerli.sum() < 5:
+            print("Gecerli tahmin sayisi yetersiz!")
+            return None
+        tahmin = tahmin[gecerli]
+        gercek = gercek[gecerli]
+
         # Basari metrikleri
         # Yon tahmini (yuksek mi dusuk mu)
         gercek_yon = np.diff(gercek) > 0

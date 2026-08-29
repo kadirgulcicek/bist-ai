@@ -2477,18 +2477,26 @@ def temel_analiz_sayfasi():
 
 @app.route("/ai")
 def ai_tahmin_sayfasi():
-    try:
-        sorgulanan_sembol = re.sub(r"[^A-Z]", "", request.args.get("sembol", "").upper())[:6]
-        sorgu_sinyali = None
-        sorgu_yorumu = None
-        if sorgulanan_sembol:
+    sorgulanan_sembol = re.sub(r"[^A-Z]", "", request.args.get("sembol", "").upper())[:6]
+    sorgu_sinyali = None
+    sorgu_yorumu = None
+    if sorgulanan_sembol:
+        try:
             from sinyal_pro import sinyal_analiz
             sorgu_sinyali = sinyal_analiz(sorgulanan_sembol)
             if sorgu_sinyali and sorgu_sinyali.get("karar") != "HATA":
                 from ai_yorumlama import sinyal_yorumla
                 sorgu_yorumu = sinyal_yorumla(sorgulanan_sembol, sorgu_sinyali)
+        except Exception:
+            app.logger.exception("Sinyal analizi basarisiz: %s", sorgulanan_sembol)
+            sorgu_sinyali = None
+            sorgu_yorumu = None
+
+    yarin_tahminleri = []
+    bugun_yukselenler = []
+    sonuclar = []
+    try:
         hisseler = ["THYAO", "GARAN", "ASELS", "TUPRS", "EREGL"]
-        yarin_tahminleri = []
         for sembol in hisseler:
             tahmin = yarin_hisse_tahmini(sembol)
             if tahmin:
@@ -2500,7 +2508,6 @@ def ai_tahmin_sayfasi():
 
         ensemble = EnsembleTahminci(look_back=30)
         model_hazir = ensemble.model_egit(hisseler[0]) is not None
-        sonuclar = []
         for sembol in hisseler:
             tahminler = ensemble.gelecek_tahmin(sembol, gun_sayisi=5) if model_hazir else None
             tahminler = tahminler or basit_ai_tahmini(sembol, gun_sayisi=5)
@@ -2514,22 +2521,18 @@ def ai_tahmin_sayfasi():
                     "degisim": f"{degisim:+.2f}", "renk": renk,
                 })
         sonuclar.sort(key=lambda x: float(x["degisim"]), reverse=True)
-        return render_template_string(
-            HTML_AI,
-            sonuclar=sonuclar,
-            yarin_tahminleri=yarin_tahminleri,
-            bugun_yukselenler=bugun_yukselenler,
-            sorgulanan_sembol=sorgulanan_sembol,
-            sorgu_sinyali=sorgu_sinyali,
-            sorgu_yorumu=sorgu_yorumu,
-        )
-    except Exception as e:
-        return render_template_string(
-            HTML_AI,
-            sonuclar=[], yarin_tahminleri=[], bugun_yukselenler=[],
-            sorgulanan_sembol=request.args.get("sembol", "").upper(),
-            sorgu_sinyali=None, sorgu_yorumu=None,
-        )
+    except Exception:
+        app.logger.exception("AI tahmin listesi olusturulamadi")
+
+    return render_template_string(
+        HTML_AI,
+        sonuclar=sonuclar,
+        yarin_tahminleri=yarin_tahminleri,
+        bugun_yukselenler=bugun_yukselenler,
+        sorgulanan_sembol=sorgulanan_sembol,
+        sorgu_sinyali=sorgu_sinyali,
+        sorgu_yorumu=sorgu_yorumu,
+    )
 
 
 @app.route("/tarama")
