@@ -11,7 +11,11 @@ import yfinance as yf
 def guvenli_veri(sembol: str, period: str = "6mo"):
     try:
         veri = yf.Ticker(f"{sembol.upper().replace('.IS', '')}.IS").history(period=period, auto_adjust=True)
-        return veri if veri is not None and len(veri) >= 60 else None
+        if veri is None:
+            return None
+        # Yahoo bazen henuz kapanmamis/eksik son gunu NaN olarak doner; bunlari at.
+        veri = veri.dropna(subset=["Close", "Volume"])
+        return veri if len(veri) >= 60 else None
     except Exception:
         return None
 
