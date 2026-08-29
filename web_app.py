@@ -35,6 +35,7 @@ except ImportError:
 
 from ensemble_model import EnsembleTahminci
 from auth import KullaniciYoneticisi
+from eposta_gonder import sifirlama_maili_gonder
 from piyasa_istihbarati import hisse_istihbarat_analizi
 from sosyal_medya import sosyal_medya_analiz
 from halka_arz import halka_arz_ozeti
@@ -124,7 +125,7 @@ def hamburger_menu_ekle(response):
             ("/risk", "Risk"), ("/teknik", "Teknik Analiz"), ("/temel", "Temel Analiz"), ("/ai", "Yapay Zeka"),
             ("/istihbarat", "Istihbarat"), ("/takas", "Takas Analizi"), ("/sinyal", "Sinyal"),
             ("/tarama", "Tarama"), ("/halka-arz", "Halka Arz"),
-            ("/hedef", "Hedef"), ("/bildirim", "Bildirim"), ("/cikis", "Cikis"),
+            ("/hedef", "Hedef"), ("/bildirim", "Bildirim"), ("/profil", "Profil"), ("/cikis", "Cikis"),
         )
         menu = "".join(
             f'<a href="{yol}"{(" class=\"active\"" if aktif_yol == yol else "")}>{etiket}</a>'
@@ -268,6 +269,12 @@ def normalize_bist_sembol(sembol):
     return str(sembol or "").strip().upper().replace(".IS", "")
 
 kullanici_yoneticisi = KullaniciYoneticisi()
+
+
+@app.context_processor
+def sablon_degiskenleri():
+    """kullanici_yoneticisi tum sablonlarda (render_template_string) erisilebilir olsun"""
+    return {"kullanici_yoneticisi": kullanici_yoneticisi}
 
 
 @app.route("/health")
@@ -694,6 +701,7 @@ input{width:100%;padding:14px 12px;margin:8px 0;border:1px solid rgba(148,163,18
 <button class="btn" type="submit">Giris Yap</button>
 </form>
 <div class="switch">Hesabin yok mu? <a href="/kayit">Kayit Ol</a></div>
+<div class="switch"><a href="/sifremi-unuttum">Sifremi unuttum</a></div>
 </div></div>
 </body></html>
 """
@@ -731,6 +739,148 @@ input{width:100%;padding:14px 12px;margin:8px 0;border:1px solid rgba(148,163,18
 </form>
 <div class="switch">Hesabin var mi? <a href="/giris">Giris Yap</a></div>
 </div></div>
+</body></html>
+"""
+
+HTML_SIFREMI_UNUTTUM = """
+<!DOCTYPE html>
+<html>
+<head><title>BIST AI - Sifremi Unuttum</title><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{--bg:#07111f;--line:rgba(148,163,184,.18);--primary:#e94560;--primary-2:#ff6b7f;--text:#eef6ff;--muted:#9bb0c7}
+body{font-family:Segoe UI, Arial, sans-serif;background:radial-gradient(circle at top, #112339 0%, #081522 42%, #050d18 100%);color:var(--text);margin:0;padding:20px}
+.container{max-width:420px;margin:80px auto 0}
+.logo{text-align:center;margin-bottom:26px}
+.logo h1{margin:0;color:#f7f9fc;font-size:36px;letter-spacing:.08em;font-weight:800}
+.logo p{margin:8px 0 0;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;font-size:12px}
+.form-box{background:linear-gradient(180deg,rgba(17,27,44,.96),rgba(10,18,28,.96));padding:30px;border-radius:18px;border:1px solid var(--line);box-shadow:0 18px 42px rgba(2,6,23,.45)}
+.form-box h2{margin:0 0 20px;text-align:center;font-size:26px}
+.form-box p.aciklama{color:var(--muted);font-size:13px;text-align:center;margin:-8px 0 18px}
+input{width:100%;padding:14px 12px;margin:8px 0;border:1px solid rgba(148,163,184,.2);border-radius:10px;background:#0d1b2a;color:var(--text);box-sizing:border-box;font-size:15px}
+.btn{width:100%;padding:14px 12px;border:none;border-radius:10px;background:linear-gradient(135deg,var(--primary),var(--primary-2));color:white;cursor:pointer;font-size:16px;font-weight:700;margin-top:12px}
+.switch{text-align:center;margin-top:16px;color:var(--muted);font-size:14px}
+.switch a{color:#ffd1db;text-decoration:none;font-weight:700}
+.mesaj{background:rgba(76,175,80,.18);border:1px solid rgba(76,175,80,.4);padding:10px;border-radius:10px;margin-bottom:15px;text-align:center;color:#c8f7cc}
+.hata{background:rgba(220,38,38,.18);border:1px solid rgba(248,113,113,.35);padding:10px;border-radius:10px;margin-bottom:15px;text-align:center;color:#ffe4e6}
+</style></head>
+<body>
+<div class="container">
+<div class="logo"><h1>BIST AI</h1><p>Sifre Sifirlama</p></div>
+<div class="form-box">
+<h2>Sifremi Unuttum</h2>
+<p class="aciklama">Kullanici adinizi veya kayitli emailinizi girin, sifirlama baglantisi gonderelim.</p>
+{% if mesaj %}<div class="mesaj">{{ mesaj }}</div>{% endif %}
+{% if hata %}<div class="hata">{{ hata }}</div>{% endif %}
+<form method="POST" action="/sifremi-unuttum">
+<input type="text" name="deger" placeholder="Kullanici adi veya email" required>
+<button class="btn" type="submit">Sifirlama Baglantisi Gonder</button>
+</form>
+<div class="switch"><a href="/giris">Giris ekranina don</a></div>
+</div></div>
+</body></html>
+"""
+
+HTML_SIFRE_SIFIRLA = """
+<!DOCTYPE html>
+<html>
+<head><title>BIST AI - Sifre Sifirla</title><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{--bg:#07111f;--line:rgba(148,163,184,.18);--primary:#e94560;--primary-2:#ff6b7f;--text:#eef6ff;--muted:#9bb0c7}
+body{font-family:Segoe UI, Arial, sans-serif;background:radial-gradient(circle at top, #112339 0%, #081522 42%, #050d18 100%);color:var(--text);margin:0;padding:20px}
+.container{max-width:420px;margin:80px auto 0}
+.logo{text-align:center;margin-bottom:26px}
+.logo h1{margin:0;color:#f7f9fc;font-size:36px;letter-spacing:.08em;font-weight:800}
+.form-box{background:linear-gradient(180deg,rgba(17,27,44,.96),rgba(10,18,28,.96));padding:30px;border-radius:18px;border:1px solid var(--line);box-shadow:0 18px 42px rgba(2,6,23,.45)}
+.form-box h2{margin:0 0 20px;text-align:center;font-size:26px}
+input{width:100%;padding:14px 12px;margin:8px 0;border:1px solid rgba(148,163,184,.2);border-radius:10px;background:#0d1b2a;color:var(--text);box-sizing:border-box;font-size:15px}
+.btn{width:100%;padding:14px 12px;border:none;border-radius:10px;background:linear-gradient(135deg,var(--primary),var(--primary-2));color:white;cursor:pointer;font-size:16px;font-weight:700;margin-top:12px}
+.switch{text-align:center;margin-top:16px;color:var(--muted);font-size:14px}
+.switch a{color:#ffd1db;text-decoration:none;font-weight:700}
+.mesaj{background:rgba(76,175,80,.18);border:1px solid rgba(76,175,80,.4);padding:10px;border-radius:10px;margin-bottom:15px;text-align:center;color:#c8f7cc}
+.hata{background:rgba(220,38,38,.18);border:1px solid rgba(248,113,113,.35);padding:10px;border-radius:10px;margin-bottom:15px;text-align:center;color:#ffe4e6}
+</style></head>
+<body>
+<div class="container">
+<div class="logo"><h1>BIST AI</h1><p>Yeni Sifre Belirle</p></div>
+<div class="form-box">
+<h2>Sifre Sifirla</h2>
+{% if mesaj %}<div class="mesaj">{{ mesaj }}</div>{% endif %}
+{% if hata %}<div class="hata">{{ hata }}</div>{% endif %}
+{% if gecerli %}
+<form method="POST" action="/sifre-sifirla">
+<input type="hidden" name="token" value="{{ token }}">
+<input type="password" name="yeni_sifre" placeholder="Yeni sifre (min 4 karakter)" minlength="4" required>
+<input type="password" name="yeni_sifre_tekrar" placeholder="Yeni sifre (tekrar)" minlength="4" required>
+<button class="btn" type="submit">Sifreyi Guncelle</button>
+</form>
+{% endif %}
+<div class="switch"><a href="/giris">Giris ekranina don</a></div>
+</div></div>
+</body></html>
+"""
+
+HTML_PROFIL = """
+<!DOCTYPE html>
+<html>
+<head><title>BIST AI - Profil</title><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body{font-family:Arial;background:#1a1a2e;color:#fff;margin:0;padding:15px}
+.container{max-width:640px;margin:auto}
+.header,.card{background:#16213e;border-radius:8px;padding:18px;margin-bottom:15px}
+.header h1{margin:0;color:#e94560;font-size:22px}
+.menu{display:flex;gap:8px;margin:15px 0;flex-wrap:wrap}
+.card h2{margin-top:0;font-size:18px}
+label{display:block;margin:10px 0 4px;color:#b0bec5;font-size:13px}
+input{width:100%;padding:10px;border:none;border-radius:5px;background:#0f3460;color:#fff;box-sizing:border-box}
+.btn{margin-top:14px;display:inline-block;padding:10px 20px;background:#e94560;color:#fff;border:none;border-radius:5px;cursor:pointer;font-weight:bold}
+.info{color:#b0bec5;font-size:14px;margin:4px 0}
+.mesaj{background:rgba(76,175,80,.18);border:1px solid rgba(76,175,80,.4);padding:10px;border-radius:8px;margin-bottom:15px;color:#c8f7cc}
+.hata{background:rgba(220,38,38,.18);border:1px solid rgba(248,113,113,.35);padding:10px;border-radius:8px;margin-bottom:15px;color:#ffe4e6}
+</style></head>
+<body>
+<div class="container">
+<div class="header"><h1>Profil</h1><p>{{ tarih }}</p></div>
+<div class="menu"></div>
+{% if mesaj %}<div class="mesaj">{{ mesaj }}</div>{% endif %}
+{% if hata %}<div class="hata">{{ hata }}</div>{% endif %}
+<div class="card">
+<h2>Hesap Bilgileri</h2>
+<p class="info">Kullanici adi: <strong>{{ kullanici }}</strong></p>
+<p class="info">Kayit tarihi: {{ kayit_tarihi or 'Bilinmiyor' }}</p>
+<p class="info">Rol: {{ 'Admin' if admin_mi else 'Kullanici' }}</p>
+</div>
+<div class="card">
+<h2>Telefon Numarasi</h2>
+<form method="POST" action="/profil">
+<input type="hidden" name="form_tipi" value="telefon">
+<label for="telefon">Telefon numarasi</label>
+<input type="tel" id="telefon" name="telefon" value="{{ telefon }}" placeholder="+90 5xx xxx xx xx">
+<button class="btn" type="submit">Telefonu Guncelle</button>
+</form>
+</div>
+<div class="card">
+<h2>Email Degistir</h2>
+<form method="POST" action="/profil">
+<input type="hidden" name="form_tipi" value="email">
+<label for="email">Yeni email</label>
+<input type="email" id="email" name="email" value="{{ email }}" required>
+<button class="btn" type="submit">Emaili Guncelle</button>
+</form>
+</div>
+<div class="card">
+<h2>Sifre Degistir</h2>
+<form method="POST" action="/profil">
+<input type="hidden" name="form_tipi" value="sifre">
+<label for="eski_sifre">Mevcut sifre</label>
+<input type="password" id="eski_sifre" name="eski_sifre" required>
+<label for="yeni_sifre">Yeni sifre</label>
+<input type="password" id="yeni_sifre" name="yeni_sifre" minlength="4" required>
+<label for="yeni_sifre_tekrar">Yeni sifre (tekrar)</label>
+<input type="password" id="yeni_sifre_tekrar" name="yeni_sifre_tekrar" minlength="4" required>
+<button class="btn" type="submit">Sifreyi Guncelle</button>
+</form>
+</div>
+</div>
 </body></html>
 """
 
@@ -772,6 +922,7 @@ input{width:100%;padding:10px;margin:5px 0;border:none;border-radius:5px;backgro
 <a href="/" class="active">Portfoy</a><a href="/panel">Panel</a><a href="/sektor">Sektor</a>
 <a href="/risk">Risk</a><a href="/ai">AI</a><a href="/istihbarat">Istihbarat</a><a href="/sinyal">Sinyal</a>
 <a href="/hedef">Hedef</a><a href="/bildirim">Bildirim</a>
+{% if kullanici and kullanici_yoneticisi.admin_mi(kullanici) %}<a href="/admin">Admin</a>{% endif %}
 </div>
 <div class="stats">
 <div class="stat-card"><div>Deger</div><div class="stat-value">{{ toplam_deger }} TL</div></div>
@@ -1511,6 +1662,49 @@ def kayit():
     return render_template_string(HTML_KAYIT, hata=None)
 
 
+@app.route("/sifremi-unuttum", methods=["GET", "POST"])
+def sifremi_unuttum():
+    mesaj = None
+    hata = None
+    if request.method == "POST":
+        deger = request.form.get("deger", "")
+        kullanici_adi, token = kullanici_yoneticisi.sifirlama_tokeni_olustur(deger)
+        if kullanici_adi and token:
+            bilgi = kullanici_yoneticisi.kullanici_bilgisi_al(kullanici_adi) or {}
+            alici_email = bilgi.get("email")
+            if alici_email:
+                sifirlama_linki = url_for("sifre_sifirla", token=token, _external=True)
+                sifirlama_maili_gonder(alici_email, sifirlama_linki)
+        # Kullanici var mi yok mu belli etmemek icin her zaman ayni mesaj gosterilir.
+        mesaj = "Eger bu bilgilerle eslesen bir hesap varsa, sifirlama baglantisi kayitli emaile gonderildi."
+    return render_template_string(HTML_SIFREMI_UNUTTUM, mesaj=mesaj, hata=hata)
+
+
+@app.route("/sifre-sifirla", methods=["GET", "POST"])
+def sifre_sifirla():
+    mesaj = None
+    hata = None
+    if request.method == "POST":
+        token = request.form.get("token", "")
+        yeni_sifre = request.form.get("yeni_sifre", "")
+        yeni_sifre_tekrar = request.form.get("yeni_sifre_tekrar", "")
+        if yeni_sifre != yeni_sifre_tekrar:
+            hata = "Sifreler eslesmiyor"
+            gecerli = kullanici_yoneticisi.sifirlama_tokeni_dogrula(token) is not None
+        else:
+            basarili, sonuc = kullanici_yoneticisi.sifre_sifirla(token, yeni_sifre)
+            if basarili:
+                return redirect(url_for("giris"))
+            hata = sonuc
+            gecerli = False
+    else:
+        token = request.args.get("token", "")
+        gecerli = kullanici_yoneticisi.sifirlama_tokeni_dogrula(token) is not None
+        if not gecerli:
+            hata = "Baglanti gecersiz veya suresi dolmus"
+    return render_template_string(HTML_SIFRE_SIFIRLA, mesaj=mesaj, hata=hata, gecerli=gecerli, token=token)
+
+
 @app.route("/cikis")
 def cikis():
     token = request.cookies.get("session_token")
@@ -1519,6 +1713,48 @@ def cikis():
     response = make_response(redirect(url_for("giris")))
     response.delete_cookie("session_token")
     return response
+
+
+@app.route("/profil", methods=["GET", "POST"])
+def profil():
+    kullanici = aktif_kullanici_al()
+    if not kullanici:
+        return redirect(url_for("giris"))
+
+    mesaj = None
+    hata = None
+
+    if request.method == "POST":
+        form_tipi = request.form.get("form_tipi")
+        if form_tipi == "email":
+            basarili, sonuc = kullanici_yoneticisi.email_guncelle(kullanici, request.form.get("email", ""))
+            mesaj, hata = (sonuc, None) if basarili else (None, sonuc)
+        elif form_tipi == "sifre":
+            yeni_sifre = request.form.get("yeni_sifre", "")
+            yeni_sifre_tekrar = request.form.get("yeni_sifre_tekrar", "")
+            if yeni_sifre != yeni_sifre_tekrar:
+                hata = "Yeni sifreler eslesmiyor"
+            else:
+                basarili, sonuc = kullanici_yoneticisi.sifre_degistir(
+                    kullanici, request.form.get("eski_sifre", ""), yeni_sifre
+                )
+                mesaj, hata = (sonuc, None) if basarili else (None, sonuc)
+        elif form_tipi == "telefon":
+            basarili, sonuc = kullanici_yoneticisi.telefon_guncelle(kullanici, request.form.get("telefon", ""))
+            mesaj, hata = (sonuc, None) if basarili else (None, sonuc)
+
+    bilgi = kullanici_yoneticisi.kullanici_bilgisi_al(kullanici) or {}
+    return render_template_string(
+        HTML_PROFIL,
+        kullanici=kullanici,
+        email=bilgi.get("email", ""),
+        telefon=bilgi.get("telefon") or "",
+        kayit_tarihi=bilgi.get("kayit_tarihi", ""),
+        admin_mi=admin_kontrol(kullanici),
+        mesaj=mesaj,
+        hata=hata,
+        tarih=datetime.now().strftime("%d.%m.%Y %H:%M"),
+    )
 
 
 @app.route("/")
@@ -1674,32 +1910,141 @@ def performans():
     """, toplam=toplam, noktalar=noktalar, son_performans=son_performans, mevcut_deger=mevcut_deger, grafik_durumu=grafik_durumu)
 
 
+def admin_kontrol(kullanici):
+    """Kullanicinin admin olup olmadigini kontrol et"""
+    if not kullanici:
+        return False
+    try:
+        return kullanici_yoneticisi.admin_mi(kullanici)
+    except Exception:
+        return False
+
+
 @app.route("/admin")
-def admin():
+def admin_panel():
+    """Admin paneli ana sayfa"""
     kullanici = aktif_kullanici_al()
-    admin_adi = os.environ.get("ADMIN_USERNAME", "admin").lower()
-    if not kullanici or kullanici.lower() != admin_adi:
-        return "Yetkisiz erişim", 403
-    kullanicilar = kullanici_yoneticisi.kullanicilari_al()
-    satirlar = "".join(
-        f"<tr><td>{ad}</td><td>{email}</td><td>{tarih}</td>"
-        f"<td><form method='POST' action='/admin/kullanici-sil/{ad}'><button>Sil</button></form></td></tr>"
-        for ad, email, tarih in kullanicilar
-    )
-    return f"<h1>Yönetici Paneli</h1><table><tr><th>Kullanıcı</th><th>Email</th><th>Kayıt</th><th>İşlem</th></tr>{satirlar}</table>"
+    if not kullanici:
+        return redirect(url_for("giris"))
+    if not admin_kontrol(kullanici):
+        return "<h1>Yetkisiz Erisim</h1><p>Bu sayfaya erisim yetkiniz yok.</p><a href='/'>Ana Sayfa</a>"
+
+    try:
+        from admin import AdminYoneticisi
+        admin = AdminYoneticisi()
+
+        if not admin.admin_listele():
+            admin.admin_ekle(kullanici, "admin123", f"{kullanici}@admin.bistai", "super_admin")
+
+        istatistikler = admin.genel_istatistikler()
+        metrikler = admin.metrikleri_getir()
+        loglar = admin.loglari_getir(20)
+
+        return render_template_string(
+            HTML_ADMIN,
+            kullanici=kullanici,
+            istatistikler=istatistikler,
+            metrikler=metrikler,
+            loglar=loglar,
+            bakim_modu=admin.bakim_modu(),
+            kayit_acik=admin.kayit_acik(),
+            tarih=datetime.now().strftime("%d.%m.%Y %H:%M"),
+        )
+    except Exception as e:
+        return f"Admin paneli yuklenirken hata: {e}"
 
 
-@app.route("/admin/kullanici-sil/<kullanici_adi>", methods=["POST"])
+@app.route("/admin/kullanicilar")
+def admin_kullanicilar():
+    """Kullanici yonetimi sayfasi"""
+    kullanici = aktif_kullanici_al()
+    if not kullanici or not admin_kontrol(kullanici):
+        return "<h1>Yetkisiz</h1>"
+
+    try:
+        kullanicilar = kullanici_yoneticisi.admin_listele()
+        return render_template_string(
+            HTML_ADMIN_KULLANICILAR,
+            kullanici=kullanici,
+            kullanicilar=kullanicilar,
+            tarih=datetime.now().strftime("%d.%m.%Y %H:%M"),
+        )
+    except Exception as e:
+        return f"Hata: {e}"
+
+
+@app.route("/admin/loglar")
+def admin_loglar():
+    """Log goruntuleme"""
+    kullanici = aktif_kullanici_al()
+    if not kullanici or not admin_kontrol(kullanici):
+        return "<h1>Yetkisiz</h1>"
+
+    try:
+        from admin import AdminYoneticisi
+        admin = AdminYoneticisi()
+        loglar = admin.loglari_getir(100)
+        hatalar = admin.hatalari_getir(50)
+
+        return render_template_string(
+            HTML_ADMIN_LOGLAR,
+            kullanici=kullanici,
+            loglar=loglar,
+            hatalar=hatalar,
+            tarih=datetime.now().strftime("%d.%m.%Y %H:%M"),
+        )
+    except Exception as e:
+        return f"Hata: {e}"
+
+
+@app.route("/admin/kullanici-sil/<kullanici_adi>", methods=["GET", "POST"])
 def admin_kullanici_sil(kullanici_adi):
-    kullanici = aktif_kullanici_al()
-    admin_adi = os.environ.get("ADMIN_USERNAME", "admin").lower()
-    if not kullanici or kullanici.lower() != admin_adi:
-        return "Yetkisiz erişim", 403
-    if kullanici_adi.lower() == admin_adi:
-        return "Yönetici hesabı silinemez", 400
-    kullanici_yoneticisi.kullanici_sil(kullanici_adi)
-    return redirect(url_for("admin"))
+    """Kullanici sil"""
+    aktif = aktif_kullanici_al()
+    if not aktif or not admin_kontrol(aktif):
+        return "<h1>Yetkisiz</h1>"
 
+    if kullanici_adi.lower() == aktif.lower():
+        return "<h1>Hata</h1><p>Kendi hesabinizi silemezsiniz.</p>"
+
+    kullanici_yoneticisi.kullanici_sil(kullanici_adi)
+
+    from admin import AdminYoneticisi
+    AdminYoneticisi().log_ekle(aktif, "Kullanici silindi", kullanici_adi)
+
+    return redirect(url_for("admin_kullanicilar"))
+
+
+@app.route("/admin/bakim/<deger>")
+def admin_bakim(deger):
+    """Bakim modunu ac/kapat"""
+    kullanici = aktif_kullanici_al()
+    if not kullanici or not admin_kontrol(kullanici):
+        return "<h1>Yetkisiz</h1>"
+
+    from admin import AdminYoneticisi
+    admin = AdminYoneticisi()
+    aktif_mi = deger == "1"
+    admin.bakim_modu(aktif_mi)
+    admin.log_ekle(kullanici, "Bakim modu degistirildi", f"aktif={aktif_mi}")
+
+    return redirect(url_for("admin_panel"))
+
+
+@app.route("/admin/kayit/<deger>")
+def admin_kayit_ac(deger):
+    """Kayit acar/kapatir"""
+    kullanici = aktif_kullanici_al()
+    if not kullanici or not admin_kontrol(kullanici):
+        return "<h1>Yetkisiz</h1>"
+
+    from admin import AdminYoneticisi
+    admin = AdminYoneticisi()
+    acik_mi = deger == "1"
+    admin.kayit_acik(acik_mi)
+    admin.log_ekle(kullanici, "Kayit durumu degisti", f"acik={acik_mi}")
+
+    return redirect(url_for("admin_panel"))
 
 @app.route("/risk-sorgula", methods=["POST"])
 def risk_sorgula():
@@ -2335,6 +2680,577 @@ def bildirim_sayfasi():
         ayarlar=ayarlar, mesaj=mesaj, sinif=sinif,
     )
 
+
+HTML_ADMIN = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Panel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        :root {
+            --bg: #081120;
+            --bg-soft: #101b2c;
+            --panel: rgba(17, 24, 39, 0.88);
+            --panel-strong: #101c2d;
+            --panel-alt: #15304d;
+            --line: rgba(148, 163, 184, 0.18);
+            --text: #e5edf9;
+            --muted: #9bb0c8;
+            --primary: #5eead4;
+            --primary-2: #38bdf8;
+            --warning: #fbbf24;
+            --danger: #f87171;
+            --success: #34d399;
+            --shadow: 0 24px 60px rgba(15, 23, 42, 0.65);
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: Inter, Arial, sans-serif;
+            background:
+                radial-gradient(circle at top left, rgba(56, 189, 248, 0.18) 0%, transparent 28%),
+                radial-gradient(circle at bottom right, rgba(94, 234, 212, 0.17) 0%, transparent 30%),
+                var(--bg);
+            color: var(--text);
+        }
+        a { color: inherit; }
+        .container {
+            max-width: 1200px;
+            margin: 28px auto 48px;
+            padding: 0 18px;
+        }
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            box-shadow: var(--shadow);
+            padding: 18px 22px;
+            margin-bottom: 18px;
+            backdrop-filter: blur(8px);
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .brand-mark {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            display: grid;
+            place-items: center;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary-2), var(--primary));
+            color: #06101f;
+        }
+        .brand h1 { margin: 0; font-size: 1.1rem; }
+        .brand small { color: var(--muted); display: block; margin-top: 3px; }
+        .topbar-meta {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+        .topbar-meta .pill {
+            background: rgba(94, 234, 212, 0.1);
+            color: var(--primary);
+            padding: 8px 12px;
+            border-radius: 999px;
+            border: 1px solid rgba(94, 234, 212, 0.2);
+            font-weight: 600;
+        }
+        .menu {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 24px;
+        }
+        .menu a {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 110px;
+            padding: 10px 14px;
+            border-radius: 10px;
+            background: rgba(16, 27, 44, 0.9);
+            border: 1px solid var(--line);
+            text-decoration: none;
+            color: var(--text);
+            font-size: 0.9rem;
+            transition: 0.2s ease;
+        }
+        .menu a:hover, .menu a.active {
+            background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), rgba(94, 234, 212, 0.1));
+            border-color: rgba(94, 234, 212, 0.32);
+        }
+        .menu a.cikis {
+            background: rgba(248, 113, 113, 0.12);
+            border-color: rgba(248, 113, 113, 0.28);
+            color: #fecaca;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: linear-gradient(180deg, rgba(17, 24, 39, 0.95), rgba(10, 18, 31, 0.94));
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            padding: 18px 16px;
+        }
+        .stat-label {
+            color: var(--muted);
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .stat-value {
+            font-size: clamp(1.6rem, 2vw, 2.1rem);
+            font-weight: 800;
+            margin-top: 12px;
+            color: var(--success);
+        }
+        .stat-card.warn .stat-value { color: var(--warning); }
+        .stat-card.danger .stat-value { color: var(--danger); }
+        .section {
+            background: rgba(15, 23, 42, 0.82);
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            padding: 20px 18px;
+            margin-bottom: 18px;
+            box-shadow: var(--shadow);
+        }
+        .section h3 {
+            margin: 0 0 16px;
+            font-size: 1.05rem;
+            color: #f8fafc;
+        }
+        .ayar-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--line);
+            color: var(--text);
+        }
+        .ayar-row:last-child { border-bottom: none; }
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 52px;
+            height: 28px;
+        }
+        .switch input { display: none; }
+        .slider {
+            position: absolute;
+            inset: 0;
+            background: rgba(148, 163, 184, 0.4);
+            border-radius: 999px;
+            transition: 0.25s ease;
+        }
+        .slider:before {
+            content: "";
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            left: 4px;
+            bottom: 4px;
+            border-radius: 50%;
+            background: white;
+            transition: 0.25s ease;
+        }
+        input:checked + .slider { background: linear-gradient(135deg, var(--success), var(--primary)); }
+        input:checked + .slider:before { transform: translateX(24px); }
+        .log-list {
+            display: grid;
+            gap: 10px;
+        }
+        .log-entry {
+            display: grid;
+            gap: 6px;
+            background: rgba(19, 34, 52, 0.9);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 12px 14px;
+        }
+        .log-time {
+            color: var(--muted);
+            font-size: 0.74rem;
+        }
+        .muted { color: var(--muted); }
+        @media (max-width: 860px) {
+            .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 560px) {
+            .stats-grid { grid-template-columns: 1fr; }
+            .topbar { flex-direction: column; align-items: flex-start; }
+            .menu a { flex: 1 1 calc(50% - 10px); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="topbar">
+            <div class="brand">
+                <div class="brand-mark">AI</div>
+                <div>
+                    <h1>Admin Panel</h1>
+                    <small>Yönetim merkezi</small>
+                </div>
+            </div>
+            <div class="topbar-meta">
+                <span class="pill">{{ kullanici }}</span>
+                <span>{{ tarih }}</span>
+            </div>
+        </div>
+
+        <div class="menu">
+            <a href="/admin" class="active">Dashboard</a>
+            <a href="/admin/kullanicilar">Kullanıcılar</a>
+            <a href="/admin/loglar">Loglar</a>
+            <a href="/">Siteye Dön</a>
+            <a href="/cikis" class="cikis">Çıkış</a>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Toplam Admin</div>
+                <div class="stat-value">{{ istatistikler.toplam_admin }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Aktif Admin</div>
+                <div class="stat-value">{{ istatistikler.aktif_admin }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Son 24 Saat</div>
+                <div class="stat-value">{{ istatistikler.son_24_saat_aktivite }}</div>
+            </div>
+            <div class="stat-card {% if istatistikler.toplam_hata > 10 %}danger{% endif %}">
+                <div class="stat-label">Toplam Hata</div>
+                <div class="stat-value">{{ istatistikler.toplam_hata }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Sorgu</div>
+                <div class="stat-value">{{ metrikler.toplam_sorgu }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">API Çağrıları</div>
+                <div class="stat-value">{{ metrikler.api_cagrilari }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Engellenen IP</div>
+                <div class="stat-value">{{ istatistikler.engelli_ip_sayisi }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Toplam Log</div>
+                <div class="stat-value">{{ istatistikler.toplam_aktivite }}</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>Sistem Ayarları</h3>
+            <div class="ayar-row">
+                <span>Bakım Modu</span>
+                <label class="switch">
+                    <input type="checkbox" {% if bakim_modu %}checked{% endif %} onchange="window.location.href='/admin/bakim/{{ 0 if bakim_modu else 1 }}'">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="ayar-row">
+                <span>Yeni Kayıt</span>
+                <label class="switch">
+                    <input type="checkbox" {% if kayit_acik %}checked{% endif %} onchange="window.location.href='/admin/kayit/{{ 0 if kayit_acik else 1 }}'">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>Son Aktiviteler</h3>
+            <div class="log-list">
+                {% if loglar %}
+                    {% for log in loglar[:10] %}
+                    <div class="log-entry">
+                        <div class="log-time">{{ log.tarih[:19] }}</div>
+                        <div><b>{{ log.kullanici }}</b> - {{ log.islem }} - {{ log.detay }}</div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="muted">Henüz aktivite yok.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+HTML_ADMIN_KULLANICILAR = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Kullanıcılar</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        :root {
+            --bg: #081120;
+            --panel: rgba(15, 23, 42, 0.92);
+            --panel-2: rgba(17, 24, 39, 0.96);
+            --line: rgba(148, 163, 184, 0.15);
+            --text: #edf6ff;
+            --muted: #9bb0c8;
+            --primary: #38bdf8;
+            --success: #34d399;
+            --danger: #f87171;
+            --shadow: 0 20px 45px rgba(0, 0, 0, 0.28);
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: Inter, Arial, sans-serif;
+            background: linear-gradient(180deg, #081120 0%, #0f172a 100%);
+            color: var(--text);
+        }
+        .container { max-width: 1100px; margin: 30px auto; padding: 0 18px; }
+        .topbar {
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            padding: 18px 22px;
+            box-shadow: var(--shadow);
+            margin-bottom: 18px;
+        }
+        .topbar h1 { margin: 0; font-size: 1.3rem; }
+        .menu {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        .menu a {
+            text-decoration: none;
+            color: var(--text);
+            background: rgba(20, 31, 47, 0.9);
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 10px 14px;
+            min-width: 110px;
+            text-align: center;
+        }
+        .menu a.active { background: rgba(56, 189, 248, 0.14); border-color: rgba(56, 189, 248, 0.4); }
+        .list {
+            display: grid;
+            gap: 12px;
+        }
+        .user-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 14px;
+            background: linear-gradient(180deg, rgba(17, 24, 39, 0.94), rgba(12, 18, 30, 0.95));
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            padding: 16px 18px;
+            box-shadow: var(--shadow);
+        }
+        .user-info { display: grid; gap: 4px; }
+        .user-name {
+            font-size: 1.05rem;
+            font-weight: 700;
+        }
+        .user-email {
+            color: var(--muted);
+            font-size: 0.82rem;
+        }
+        .actions { display: flex; align-items: center; gap: 10px; }
+        .badge, .btn {
+            border-radius: 10px;
+            padding: 9px 14px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .badge {
+            background: rgba(52, 211, 153, 0.1);
+            border: 1px solid rgba(52, 211, 153, 0.2);
+            color: #a7f3d0;
+        }
+        .btn {
+            background: rgba(248, 113, 113, 0.12);
+            border: 1px solid rgba(248, 113, 113, 0.25);
+            color: #fecaca;
+        }
+        .muted { color: var(--muted); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="topbar"><h1>👥 Kullanıcı Yönetimi</h1></div>
+        <div class="menu">
+            <a href="/admin">Dashboard</a>
+            <a href="/admin/kullanicilar" class="active">Kullanıcılar</a>
+            <a href="/admin/loglar">Loglar</a>
+            <a href="/">Siteye Dön</a>
+        </div>
+
+        {% if kullanicilar %}
+            <div class="list">
+                {% for k in kullanicilar %}
+                <div class="user-card">
+                    <div class="user-info">
+                        <div class="user-name">{{ k.kullanici_adi }}</div>
+                        <div class="user-email">{{ k.email }} · {{ k.kayit_tarihi[:10] }}</div>
+                    </div>
+                    <div class="actions">
+                        {% if k.kullanici_adi != kullanici %}
+                        <a href="/admin/kullanici-sil/{{ k.kullanici_adi }}" class="btn" onclick="return confirm('{{ k.kullanici_adi }} kullanıcısını silmek istediğinize emin misiniz?')">Sil</a>
+                        {% else %}
+                        <span class="badge">Siz</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="muted">Henüz kullanıcı yok.</div>
+        {% endif %}
+    </div>
+</body>
+</html>
+"""
+
+HTML_ADMIN_LOGLAR = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Loglar</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        :root {
+            --bg: #081120;
+            --panel: rgba(15, 23, 42, 0.92);
+            --line: rgba(148, 163, 184, 0.18);
+            --text: #edf6ff;
+            --muted: #9bb0c8;
+            --primary: #38bdf8;
+            --danger: #f87171;
+            --shadow: 0 20px 45px rgba(0, 0, 0, 0.24);
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: Inter, Arial, sans-serif;
+            background: linear-gradient(180deg, #081120 0%, #0f172a 100%);
+            color: var(--text);
+        }
+        .container { max-width: 1200px; margin: 30px auto; padding: 0 18px; }
+        .topbar {
+            background: rgba(15, 23, 42, 0.86);
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            padding: 18px 22px;
+            box-shadow: var(--shadow);
+            margin-bottom: 18px;
+        }
+        .topbar h1 { margin: 0; font-size: 1.3rem; }
+        .menu {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 18px;
+        }
+        .menu a {
+            text-decoration: none;
+            color: var(--text);
+            background: rgba(20, 31, 47, 0.9);
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 10px 14px;
+            min-width: 110px;
+            text-align: center;
+        }
+        .menu a.active { background: rgba(56, 189, 248, 0.14); border-color: rgba(56, 189, 248, 0.4); }
+        .section {
+            background: rgba(15, 23, 42, 0.84);
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            padding: 18px;
+            box-shadow: var(--shadow);
+            margin-bottom: 18px;
+        }
+        .section h3 {
+            margin: 0 0 14px;
+            font-size: 1.05rem;
+        }
+        .log-list { display: grid; gap: 10px; }
+        .log-entry {
+            background: rgba(19, 34, 52, 0.82);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 12px 14px;
+        }
+        .log-time { color: var(--muted); font-size: 0.74rem; margin-bottom: 5px; }
+        .error { background: rgba(127, 29, 29, 0.3); border-color: rgba(248, 113, 113, 0.4); }
+        .muted { color: var(--muted); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="topbar"><h1>📋 Loglar ve Hatalar</h1></div>
+        <div class="menu">
+            <a href="/admin">Dashboard</a>
+            <a href="/admin/kullanicilar">Kullanıcılar</a>
+            <a href="/admin/loglar" class="active">Loglar</a>
+            <a href="/">Siteye Dön</a>
+        </div>
+
+        <div class="section">
+            <h3>Aktivite Logları ({{ loglar|length }})</h3>
+            <div class="log-list">
+                {% if loglar %}
+                    {% for log in loglar %}
+                    <div class="log-entry">
+                        <div class="log-time">{{ log.tarih[:19] }}</div>
+                        <div><b>{{ log.kullanici }}</b> - {{ log.islem }} - {{ log.detay }}</div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="muted">Henüz aktivite yok.</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>Hata Logları ({{ hatalar|length }})</h3>
+            <div class="log-list">
+                {% if hatalar %}
+                    {% for hata in hatalar %}
+                    <div class="log-entry error">
+                        <div class="log-time">{{ hata.tarih[:19] }}</div>
+                        <div><b>{{ hata.modul }}:</b> {{ hata.hata }}</div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="muted">Hata yok.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+"""
 
 # ============================================
 # CALISTIR

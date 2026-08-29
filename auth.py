@@ -63,6 +63,13 @@ class KullaniciYoneticisi:
                     )
                 """)
                 cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS sifre_sifirlama (
+                        token TEXT PRIMARY KEY,
+                        kullanici_adi TEXT NOT NULL,
+                        son_kullanma TEXT NOT NULL
+                    )
+                """)
+                cursor.execute("""
                     SELECT column_name FROM information_schema.columns
                     WHERE table_name = 'oturumlar' AND column_name = 'son_kullanma'
                 """)
@@ -72,6 +79,12 @@ class KullaniciYoneticisi:
                     "UPDATE oturumlar SET son_kullanma = %s WHERE son_kullanma IS NULL",
                     ((datetime.now() + timedelta(days=30)).isoformat(),),
                 )
+                cursor.execute("""
+                    SELECT column_name FROM information_schema.columns
+                    WHERE table_name = 'kullanicilar' AND column_name = 'telefon'
+                """)
+                if cursor.fetchone() is None:
+                    cursor.execute("ALTER TABLE kullanicilar ADD COLUMN telefon TEXT")
             else:
                 cursor = conn.cursor()
                 cursor.execute("""
@@ -101,9 +114,19 @@ class KullaniciYoneticisi:
                         tarih TEXT NOT NULL
                     )
                 """)
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS sifre_sifirlama (
+                        token TEXT PRIMARY KEY,
+                        kullanici_adi TEXT NOT NULL,
+                        son_kullanma TEXT NOT NULL
+                    )
+                """)
                 cursor.execute("PRAGMA table_info(oturumlar)")
                 if not any(row[1] == "son_kullanma" for row in cursor.fetchall()):
                     cursor.execute("ALTER TABLE oturumlar ADD COLUMN son_kullanma TEXT")
+                cursor.execute("PRAGMA table_info(kullanicilar)")
+                if not any(row[1] == "telefon" for row in cursor.fetchall()):
+                    cursor.execute("ALTER TABLE kullanicilar ADD COLUMN telefon TEXT")
                 conn.commit()
         finally:
             conn.close()
@@ -302,6 +325,212 @@ class KullaniciYoneticisi:
             c = conn.cursor()
             c.execute("SELECT kullanici_adi, email, kayit_tarihi FROM kullanicilar ORDER BY kullanici_adi")
             return c.fetchall()
+        finally:
+            conn.close()
+
+    def admin_mi(self, kullanici_adi):
+        """Kullanici admin mi kontrol et"""
+        kullanici_adi = (kullanici_adi or "").strip()
+        if not kullanici_adi:
+            return False
+        try:
+            conn, db_tipi = _yeni_baglanti(None)
+            c = conn.cursor()
+            ph = "%s" if db_tipi == 'postgres' else "?"
+            c.execute(f"SELECT email FROM kullanicilar WHERE kullanici_adi={ph}", (kullanici_adi.lower(),))
+            sonuc = c.fetchone()
+            conn.close()
+            if sonuc and sonuc[0]:
+                email = str(sonuc[0]).lower()
+                if email.endswith("@admin.bistai") or "admin" in email:
+                    return True
+        except Exception:
+            pass
+
+        try:
+            import os
+            if os.path.exists("admin_data.json"):
+                with open("admin_data.json", "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                for admin in data.get("admin_kullanicilar", []):
+                    if str(admin.get("kullanici_adi", "")).lower() == kullanici_adi.lower():
+                        return True
+        except Exception:
+            pass
+        return False
+
+    def admin_listele(self):
+        """Tum kullanicilari listele (sadece admin)"""
+        try:
+            conn, db_tipi = _yeni_baglanti(None)
+            c = conn.cursor()
+            ph = "%s" if db_tipi == 'postgres' else "?"
+            c.execute(f"SELECT kullanici_adi, email, kayit_tarihi FROM kullanicilar")
+            kullanicilar = c.fetchall()
+            conn.close()
+            sonuc = [
+                {"kullanici_adi": k[0], "email": k[1], "kayit_tarihi": k[2]}
+                for k in kullanicilar
+            ]
+            try:
+                import os
+                if os.path.exists("admin_data.json"):
+                    with open("admin_data.json", "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    adminlar = {str(ad.get("kullanici_adi", "")).lower() for ad in data.get("admin_kullanicilar", [])}
+                    for item in sonuc:
+                        if item["kullanici_adi"].lower() in adminlar:
+                            item["admin"] = True
+            except Exception:
+                pass
+            return sonuc
+        except Exception:
+            return []
+
+    def kullanici_bilgisi_al(self, kullanici_adi):
+        """Profil sayfasi icin kullanicinin email/telefon/kayit tarihini getirir."""
+        kullanici_adi = (kullanici_adi or "").lower().strip()
+        conn, db_tipi = _yeni_baglanti(None)
+        try:
+            c = conn.cursor()
+            ph = "%s" if db_tipi == 'postgres' else "?"
+            c.execute(f"SELECT email, kayit_tarihi, telefon FROM kullanicilar WHERE kullanici_adi={ph}", (kullanici_adi,))
+            sonuc = c.fetchone()
+            if not sonuc:
+                return None
+            return {"kullanici_adi": kullanici_adi, "email": sonuc[0], "kayit_tarihi": sonuc[1], "telefon": sonuc[2]}
+        finally:
+            conn.close()
+
+    def email_guncelle(self, kullanici_adi, yeni_email):
+        """Kullanicinin email adresini gunceller."""
+        kullanici_adi = (kullanici_adi or "").lower().strip()
+        yeni_email = (yeni_email or "").strip()
+        if "@" not in yeni_email or "." not in yeni_email.split("@")[-1]:
+            return False, "Gecerli bir email girin"
+        conn, db_tipi = _yeni_baglanti(None)
+        try:
+            c = conn.cursor()
+            ph = "%s" if db_tipi == 'postgres' else "?"
+            c.execute(f"UPDATE kullanicilar SET email={ph} WHERE kullanici_adi={ph}", (yeni_email, kullanici_adi))
+            conn.commit()
+            return True, "Email guncellendi"
+        except Exception as e:
+            return False, f"Hata: {str(e)[:50]}"
+        finally:
+            conn.close()
+
+    def sifre_degistir(self, kullanici_adi, eski_sifre, yeni_sifre):
+        """Mevcut sifreyi dogrulayip yenisiyle degistirir."""
+        kullanici_adi = (kullanici_adi or "").lower().strip()
+        if len(yeni_sifre or "") < 4:
+            return False, "Yeni sifre en az 4 karakter olmali"
+        conn, db_tipi = _yeni_baglanti(None)
+        try:
+            c = conn.cursor()
+            ph = "%s" if db_tipi == 'postgres' else "?"
+            c.execute(f"SELECT sifre_hash FROM kullanicilar WHERE kullanici_adi={ph}", (kullanici_adi,))
+            sonuc = c.fetchone()
+            if not sonuc:
+                return False, "Kullanici bulunamadi"
+            if not self.sifre_dogrula(eski_sifre or "", sonuc[0]):
+                return False, "Mevcut sifre yanlis"
+            c.execute(f"UPDATE kullanicilar SET sifre_hash={ph} WHERE kullanici_adi={ph}", (self.sifre_hashle(yeni_sifre), kullanici_adi))
+            conn.commit()
+            return True, "Sifre guncellendi"
+        except Exception as e:
+            return False, f"Hata: {str(e)[:50]}"
+        finally:
+            conn.close()
+
+    def telefon_guncelle(self, kullanici_adi, yeni_telefon):
+        """Kullanicinin telefon numarasini gunceller."""
+        kullanici_adi = (kullanici_adi or "").lower().strip()
+        yeni_telefon = (yeni_telefon or "").strip()
+        rakamlar = "".join(ch for ch in yeni_telefon if ch.isdigit() or ch == "+")
+        if yeni_telefon and (len(rakamlar) < 10 or len(rakamlar) > 15):
+            return False, "Gecerli bir telefon numarasi girin"
+        conn, db_tipi = _yeni_baglanti(None)
+        try:
+            c = conn.cursor()
+            ph = "%s" if db_tipi == 'postgres' else "?"
+            c.execute(f"UPDATE kullanicilar SET telefon={ph} WHERE kullanici_adi={ph}", (yeni_telefon, kullanici_adi))
+            conn.commit()
+            return True, "Telefon numarasi guncellendi"
+        except Exception as e:
+            return False, f"Hata: {str(e)[:50]}"
+        finally:
+            conn.close()
+
+    def sifirlama_tokeni_olustur(self, kullanici_adi_veya_email):
+        """Kullanici adi veya email ile eslesen hesap icin sifre sifirlama tokeni uretir."""
+        deger = (kullanici_adi_veya_email or "").strip().lower()
+        if not deger:
+            return None, None
+        conn, db_tipi = _yeni_baglanti(None)
+        try:
+            c = conn.cursor()
+            ph = "%s" if db_tipi == 'postgres' else "?"
+            c.execute(
+                f"SELECT kullanici_adi FROM kullanicilar WHERE kullanici_adi={ph} OR LOWER(email)={ph}",
+                (deger, deger),
+            )
+            sonuc = c.fetchone()
+            if not sonuc:
+                return None, None
+            kullanici_adi = sonuc[0]
+            token = secrets.token_urlsafe(32)
+            son_kullanma = (datetime.now() + timedelta(minutes=30)).isoformat()
+            c.execute(
+                f"INSERT INTO sifre_sifirlama (token, kullanici_adi, son_kullanma) VALUES ({ph}, {ph}, {ph})",
+                (token, kullanici_adi, son_kullanma),
+            )
+            conn.commit()
+            return kullanici_adi, token
+        except Exception:
+            return None, None
+        finally:
+            conn.close()
+
+    def sifirlama_tokeni_dogrula(self, token):
+        """Token gecerliyse kullanici adini, degilse None doner."""
+        if not token:
+            return None
+        conn, db_tipi = _yeni_baglanti(None)
+        try:
+            c = conn.cursor()
+            ph = "%s" if db_tipi == 'postgres' else "?"
+            c.execute(f"SELECT kullanici_adi, son_kullanma FROM sifre_sifirlama WHERE token={ph}", (token,))
+            sonuc = c.fetchone()
+            if not sonuc:
+                return None
+            if datetime.fromisoformat(sonuc[1]) < datetime.now():
+                c.execute(f"DELETE FROM sifre_sifirlama WHERE token={ph}", (token,))
+                conn.commit()
+                return None
+            return sonuc[0]
+        except Exception:
+            return None
+        finally:
+            conn.close()
+
+    def sifre_sifirla(self, token, yeni_sifre):
+        """Gecerli bir token ile sifreyi sifirlar ve tokeni tuketir."""
+        kullanici_adi = self.sifirlama_tokeni_dogrula(token)
+        if not kullanici_adi:
+            return False, "Baglanti gecersiz veya suresi dolmus"
+        if len(yeni_sifre or "") < 4:
+            return False, "Yeni sifre en az 4 karakter olmali"
+        conn, db_tipi = _yeni_baglanti(None)
+        try:
+            c = conn.cursor()
+            ph = "%s" if db_tipi == 'postgres' else "?"
+            c.execute(f"UPDATE kullanicilar SET sifre_hash={ph} WHERE kullanici_adi={ph}", (self.sifre_hashle(yeni_sifre), kullanici_adi))
+            c.execute(f"DELETE FROM sifre_sifirlama WHERE token={ph}", (token,))
+            conn.commit()
+            return True, "Sifre basariyla sifirlandi"
+        except Exception as e:
+            return False, f"Hata: {str(e)[:50]}"
         finally:
             conn.close()
 
