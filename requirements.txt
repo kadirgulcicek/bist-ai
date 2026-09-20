@@ -6,6 +6,7 @@ requests
 matplotlib
 openpyxl
 scikit-learn
+catboost
 numpy
 joblib
 psycopg2-binary

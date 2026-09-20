@@ -164,9 +164,18 @@ class KullaniciYoneticisi:
                 conn.close()
                 return False, "Bu kullanici adi zaten alinmis"
             
-            c.execute(f"INSERT INTO kullanicilar VALUES ({ph}, {ph}, {ph}, {ph}, {ph})",
-                      (kullanici_adi, self.sifre_hashle(sifre), email,
-                       datetime.now().strftime("%Y-%m-%d"), "[]"))
+            c.execute(
+                f"INSERT INTO kullanicilar "
+                f"(kullanici_adi, sifre_hash, email, kayit_tarihi, portfoy) "
+                f"VALUES ({ph}, {ph}, {ph}, {ph}, {ph})",
+                (
+                    kullanici_adi,
+                    self.sifre_hashle(sifre),
+                    email,
+                    datetime.now().strftime("%Y-%m-%d"),
+                    "[]",
+                ),
+            )
             conn.commit()
             conn.close()
             

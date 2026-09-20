@@ -11,6 +11,7 @@ import csv
 import io
 import os
 import re
+import threading
 import time
 import yfinance as yf
 import numpy as np
@@ -97,6 +98,9 @@ def portfoy_risk_hesapla(portfoy_hisseler):
     }
 
 app = Flask(__name__)
+
+_KAPSAMLI_ANALIZ_DURUMU = {}
+_KAPSAMLI_ANALIZ_KILIDI = threading.Lock()
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
@@ -122,7 +126,7 @@ def hamburger_menu_ekle(response):
         aktif_yol = request.path
         menu_linkleri = (
             ("/", "Portfoy"), ("/sektor", "Sektor"),
-            ("/risk", "Risk"), ("/teknik", "Teknik Analiz"), ("/temel", "Temel Analiz"), ("/ai", "Yapay Zeka"),
+            ("/risk", "Risk"), ("/teknik", "Teknik Analiz"), ("/temel", "Temel Analiz"), ("/ai", "Yapay Zeka"), ("/kapsamli-analiz", "Kapsamli Analiz"),
             ("/istihbarat", "Istihbarat"), ("/takas", "Takas Analizi"), ("/sinyal", "Sinyal"),
             ("/tarama", "Tarama"), ("/halka-arz", "Halka Arz"),
             ("/hedef", "Hedef"), ("/bildirim", "Bildirim"), ("/profil", "Profil"), ("/cikis", "Cikis"),
@@ -2564,6 +2568,146 @@ def piyasa_tarama_sayfasi():
             None,
         )
     return render_template_string(HTML_TARAMA, tarama=tarama, arama_sorgu=arama_sorgu, arama_sonucu=arama_sonucu)
+
+
+@app.route("/kapsamli-analiz")
+def kapsamli_analiz_sayfasi():
+    """Tum erisilebilir BIST hisselerini coklu analizle puanlar."""
+    kullanici = aktif_kullanici_al()
+    if not kullanici:
+        return redirect(url_for("giris"))
+
+    try:
+        from kapsamli_analiz import kapsamli_tarama
+        from piyasa_tarama import sembolleri_al
+
+        semboller = sembolleri_al()
+        force = request.args.get("yenile") == "1"
+        if len(semboller) <= 20:
+            sonuc = kapsamli_tarama(semboller, force=force, kullanici=kullanici)
+        else:
+            yenileme_yonlendirmesi = False
+            with _KAPSAMLI_ANALIZ_KILIDI:
+                durum = _KAPSAMLI_ANALIZ_DURUMU.setdefault(
+                    kullanici,
+                    {"calisiyor": False, "sonuc": None, "taranan": 0, "toplam": 0},
+                )
+                if force or durum["sonuc"] is None:
+                    if not durum["calisiyor"]:
+                        durum["calisiyor"] = True
+                        durum["sonuc"] = None
+                        durum["taranan"] = 0
+                        durum["toplam"] = len(semboller)
+
+                        def ilerleme_guncelle(taranan, toplam):
+                            with _KAPSAMLI_ANALIZ_KILIDI:
+                                durum["taranan"] = taranan
+                                durum["toplam"] = toplam
+
+                        def taramayi_baslat():
+                            try:
+                                sonuc = kapsamli_tarama(
+                                    semboller,
+                                    force=force,
+                                    kullanici=kullanici,
+                                    progress_callback=ilerleme_guncelle,
+                                )
+                                with _KAPSAMLI_ANALIZ_KILIDI:
+                                    durum["sonuc"] = sonuc
+                            except Exception:
+                                app.logger.exception("Arka plan kapsamli analiz olusturamadi")
+                            finally:
+                                with _KAPSAMLI_ANALIZ_KILIDI:
+                                    durum["calisiyor"] = False
+
+                        threading.Thread(target=taramayi_baslat, daemon=True).start()
+                yenileme_yonlendirmesi = force
+
+                sonuc = durum["sonuc"]
+                taranan = durum["taranan"]
+                toplam = durum["toplam"]
+            if yenileme_yonlendirmesi:
+                return redirect(url_for("kapsamli_analiz_sayfasi"))
+            if sonuc is None:
+                return render_template_string(
+                    """
+                    <!doctype html><html lang="tr"><head><meta charset="UTF-8">
+                    <meta http-equiv="refresh" content="5">
+                    <title>BIST AI - Kapsamli Analiz</title>
+                    <style>body{font-family:Arial;background:#10171b;color:#edf5f5;padding:18px}.panel{max-width:720px;margin:80px auto;background:#172126;border:1px solid #2d4047;border-radius:8px;padding:28px}h1{color:#43b97a}</style>
+                    </head><body><div class="panel"><h1>Kapsamli BIST AI Analizi</h1>
+                    <p><b>{{ taranan }} / {{ toplam }}</b> BIST hissesi tarandi.</p>
+                    <p>Tarama tamamlandiginda bu sayfa otomatik yenilenecek ve en iyi 20 hisseyi gosterecek.</p>
+                    </div></body></html>
+                    """,
+                    sembol_sayisi=len(semboller),
+                    taranan=taranan,
+                    toplam=toplam,
+                )
+    except Exception:
+        app.logger.exception("Kapsamli analiz olusturulamadi")
+        sonuc = {"analizler": [], "sembol_sayisi": 0, "analiz_sayisi": 0, "son_guncelleme": "Veri yok"}
+
+    try:
+        from piyasa_tarama import gecikmeli_tavan_karsilastirmasi
+        tavan_performansi = sonuc.get("tavan_performansi") or {}
+        tavan_aday_sembolleri = [
+            aday.get("sembol")
+            for aday in tavan_performansi.get("tahmin_sonuclari", [])
+            if aday.get("sembol")
+        ]
+        seans_ici_tavan = gecikmeli_tavan_karsilastirmasi(tavan_aday_sembolleri)
+    except Exception:
+        app.logger.exception("Seans ici tavan karsilastirmasi olusturulamadi")
+        seans_ici_tavan = {"durum": "VERI_YOK", "uyari": "Seans ici veri alinamadi."}
+
+    satirlar = "".join(
+        "<tr>"
+        f"<td><b>{veri['sembol']}</b></td>"
+        f"<td><strong>{veri['skor']:.1f}</strong><br><small>{veri['durum']} | Aday: {veri.get('teknik', {}).get('yarin_tavan_adayi_skoru', '-')} | Model: %{veri.get('teknik', {}).get('tavan_modeli_olasiligi', '-')}</small></td>"
+        f"<td>{veri['skorlar'].get('teknik') or '-'} / {veri['skorlar'].get('temel') or '-'}<br><small>MACD {veri.get('teknik', {}).get('gosterge_skorlari', {}).get('macd', '-')} | RSI {veri.get('teknik', {}).get('gosterge_skorlari', {}).get('rsi', '-')} | MA {veri.get('teknik', {}).get('gosterge_skorlari', {}).get('ma', '-')}</small></td>"
+        f"<td>{veri['skorlar'].get('risk') or '-'}<br><small>{veri['risk_seviyesi']}</small></td>"
+        f"<td>{veri['skorlar'].get('takas') or '-'}</td>"
+        f"<td>{veri['skorlar'].get('hedef') or '-'}</td>"
+        f"<td>{veri['skorlar'].get('trade') or '-'}<br><small>{(veri.get('trade') or {}).get('karar', 'VERI YOK')}</small></td>"
+        f"<td>%{veri['veri_guveni']:.0f}</td>"
+        "</tr>"
+        for veri in sonuc.get("analizler", [])
+    )
+    return render_template_string(
+        """
+        <!doctype html><html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+        <title>BIST AI - Kapsamli Analiz</title>
+        <style>
+        body{font-family:Arial;background:#10171b;color:#edf5f5;margin:0;padding:18px}.container{max-width:1400px;margin:auto}
+        .header,.panel{background:#172126;border:1px solid #2d4047;border-radius:8px;padding:18px;margin-bottom:16px}.header h1{margin:0;color:#43b97a}.muted,small{color:#a3b7ba}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}.btn{background:#14a99d;color:#fff;text-decoration:none;border-radius:6px;padding:10px 14px;font-weight:bold}
+        table{width:100%;border-collapse:collapse;background:#172126}th,td{padding:10px 8px;border-bottom:1px solid #2d4047;text-align:left;vertical-align:top}th{background:#203239;color:#c9d9da;font-size:12px}td strong{color:#43b97a;font-size:18px}tr:hover{background:#203139}.table-wrap{overflow-x:auto}
+        </style></head><body><div class="container">
+        <div class="header"><h1>Kapsamli BIST AI Analizi</h1><p class="muted">Teknik + temel + risk + takas + hedef + gunluk trade skoru</p>
+        <div class="actions"><a class="btn" href="/kapsamli-analiz?yenile=1">Veriyi yenile</a><a class="btn" href="/">Portfoye don</a></div></div>
+        <div class="panel"><b>{{ sembol_sayisi }}</b> sembol tarandi, <b>{{ analiz_sayisi }}</b> analiz raporu olustu. Son guncelleme: {{ son_guncelleme }}<br><small>Liste, ertesi gun guclu hareket icin teknik aday skoru ile siralanir; tavan garantisi degildir. Genel agirliklar: Teknik 50, Temel 10, Risk 10, Takas 10, Hedef 10, Trade 10.</small></div>
+        <div class="panel"><b>Model kullanima uygunlugu</b><br>{% if backtest_kabul.kabul %}<strong style="color:#43b97a">AYRILMIS BACKTEST KABUL EDILDI</strong>{% else %}<strong style="color:#e5a94d">CANLI TAVAN SINYALI KAPALI</strong><br><small>Durum: {{ backtest_kabul.durum|replace('_', ' ') }}. Adaylar deneysel izleme listesinde tutulur; yuksek guvenli sinyal uretilmez.</small>{% endif %}</div>
+        <div class="panel"><b>Gerceklesen tahmin guveni: {{ tavan_gecmis_ozeti.seviye|replace('_', ' ') }}</b><br><strong>{{ tavan_gecmis_ozeti.dogru }} / {{ tavan_gecmis_ozeti.tahmin }}</strong> tahmin dogru | Precision %{{ tavan_gecmis_ozeti.precision if tavan_gecmis_ozeti.precision is not none else '-' }} | Recall %{{ tavan_gecmis_ozeti.recall if tavan_gecmis_ozeti.recall is not none else '-' }}<br><small>Bu degerler canli kayitlardan hesaplanir; gecmis performans gelecekteki sonucu garanti etmez.</small></div>
+        <div class="panel"><b>{% if backtest_kabul.kabul %}Yuksek guvenli tavan sinyalleri{% else %}Dogrulanmis tavan sinyalleri{% endif %}</b><br>{% if tavan_adaylari %}{% for aday in tavan_adaylari %}<span style="display:inline-block;margin:8px 8px 0 0;padding:8px 10px;border:1px solid #43b97a;border-radius:6px"><strong>{{ aday.sembol }}</strong> | {{ aday.teknik.tavan_guven_seviyesi }}<br>Kapanma %{{ aday.teknik.tavan_modeli_olasiligi }} | Dokunma %{{ aday.teknik.tavana_dokunma_olasiligi }}<br><small>Ham guven: %{{ aday.teknik.tavan_modeli_ham_olasiligi }} / %{{ aday.teknik.tavana_dokunma_ham_olasiligi }} | Beklenen %{{ aday.teknik.beklenen_getiri }} | Dusus riski %{{ aday.teknik.dusus_riski }}<br>Gunluk hacim {{ aday.teknik.hacim_orani }}x | 15dk momentum %{{ aday.teknik.intraday.momentum_15dk }} | Seans hacmi {{ aday.teknik.intraday.hacim_orani }}x</small></span>{% endfor %}{% else %}<strong>Bugun dogrulanmis sinyal yok.</strong>{% endif %}<br><small>Bu listeye girmek icin ayrilmis backtest kabulu ile model, risk, hacim ve seans teyitlerinin ayni anda olumlu olmasi gerekir.</small></div>
+        <div class="panel"><b>Izleme listesi - teyit eksik</b><br>{% if tavan_izleme_listesi %}{% for aday in tavan_izleme_listesi %}<span style="display:inline-block;margin:8px 8px 0 0;padding:8px 10px;border:1px solid #d4a72c;border-radius:6px"><strong>{{ aday.sembol }}</strong> | {{ aday.teknik.tavan_guven_seviyesi|replace('_', ' ') }}<br><small>{{ aday.teknik.tavan_guven_eksikleri|join('; ') }}</small></span>{% endfor %}{% else %}<small>Izleme sinyali yok.</small>{% endif %}<br><small>Bu hisseler yuksek guvenli sinyal degildir; eksik teyitler tamamlanmadan ana listeye alinmaz.</small></div>
+        <div class="panel"><b>Bugunku tavanlarla seans ici karsilastirma</b><br>{% if seans_ici_tavan.durum == 'SEANS_ICI_ON_SONUC' %}<small>Kaynak: {{ seans_ici_tavan.kaynak }} | Sorgu: {{ seans_ici_tavan.veri_zamani }}{% if seans_ici_tavan.gecikme_dakika %} | Yaklasik {{ seans_ici_tavan.gecikme_dakika }} dakika gecikmeli{% endif %}</small><br>Bugun tavanda: {% for hisse in seans_ici_tavan.tavandaki_hisseler %}<strong>{{ hisse.sembol }}</strong> (%{{ hisse.degisim }}){% if not loop.last %}, {% endif %}{% else %}-{% endfor %}<br>Dunun adaylari: {% for aday in seans_ici_tavan.aday_sonuclari %}<strong>{{ aday.sembol }}</strong> {{ aday.fiyat }} TL (%{{ aday.degisim }}) - {% if aday.tavanda %}TAVANDA{% elif aday.tavana_dokundu %}TAVANA DOKUNDU{% else %}TAVANDA DEGIL{% endif %}{% if not loop.last %} | {% endif %}{% else %}-{% endfor %}<br><small>{{ seans_ici_tavan.uyari }}</small>{% else %}<small>{{ seans_ici_tavan.uyari }}</small>{% endif %}</div>
+        {% if global_model and global_model.metrikler %}<div class="panel"><b>Global model dogrulamasi - {{ global_model.model_surumu }}</b><br>{% if global_model.metrikler.kapanma %}Tavanda kapanma: P@5 %{{ global_model.metrikler.kapanma.precision_at_5 }}, R@5 %{{ global_model.metrikler.kapanma.recall_at_5 }}, Brier {{ global_model.metrikler.kapanma.brier }} | Model {{ global_model.metrikler.kapanma.secilen_model }}{% endif %}<br>{% if global_model.metrikler.dokunma %}<small>Tavana dokunma: P@5 %{{ global_model.metrikler.dokunma.precision_at_5 }}, R@5 %{{ global_model.metrikler.dokunma.recall_at_5 }}, Brier {{ global_model.metrikler.dokunma.brier }} | Model {{ global_model.metrikler.dokunma.secilen_model }}</small>{% endif %}</div>{% endif %}
+        {% if tavan_performansi %}<div class="panel"><b>Son tavan tahmini performansi ({{ tavan_performansi.gercek_tarih }})</b><br>{% if tavan_performansi.durum == 'YETERSIZ_KAPSAM' %}<strong>{{ tavan_performansi.uyari }}</strong><br><small>Evren kapsami: %{{ tavan_performansi.evren_kapsami }}; precision ve recall hesaplanmadi.</small>{% else %}Precision: <strong>%{{ tavan_performansi.precision }}</strong> | Recall: <strong>%{{ tavan_performansi.recall }}</strong> | Dogru: {{ tavan_performansi.dogru_tahminler|join(', ') or '-' }} | Evren kapsami: %{{ tavan_performansi.evren_kapsami if tavan_performansi.evren_kapsami is not none else 'eski kayit' }}<br><small>Kacirilan tavanlar: {{ tavan_performansi.kacirilan_tavanlar|join(', ') or '-' }} | Yanlis pozitifler: {{ tavan_performansi.yanlis_pozitifler|join(', ') or '-' }}</small>{% if tavan_performansi.kacirilan_nedenleri %}<br><small>{% for sembol, nedenler in tavan_performansi.kacirilan_nedenleri.items() %}{{ sembol }}: {{ nedenler|join(', ') }}{% if not loop.last %} | {% endif %}{% endfor %}</small>{% endif %}{% endif %}</div>{% endif %}
+        <div class="panel table-wrap"><table><thead><tr><th>Hisse</th><th>Toplam</th><th>Teknik / Temel</th><th>Risk</th><th>Takas</th><th>Hedef</th><th>Trade</th><th>Veri guveni</th></tr></thead><tbody>{{ satirlar|safe }}</tbody></table></div>
+        </div></body></html>
+        """,
+        sembol_sayisi=sonuc.get("sembol_sayisi", 0),
+        analiz_sayisi=sonuc.get("analiz_sayisi", 0),
+        son_guncelleme=sonuc.get("son_guncelleme", "Veri yok"),
+        tavan_adaylari=sonuc.get("tavan_adaylari", []),
+        tavan_izleme_listesi=sonuc.get("tavan_izleme_listesi", []),
+        tavan_performansi=sonuc.get("tavan_performansi"),
+        tavan_gecmis_ozeti=sonuc.get("tavan_gecmis_ozeti", {}),
+        seans_ici_tavan=seans_ici_tavan,
+        global_model=sonuc.get("global_model"),
+        backtest_kabul=sonuc.get("backtest_kabul", {"kabul": False, "durum": "rapor_yok"}),
+        satirlar=satirlar,
+    )
 
 
 @app.route("/istihbarat")

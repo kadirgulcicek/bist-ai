@@ -10,12 +10,68 @@ from datetime import datetime
 from typing import Any
 
 import requests
-import yfinance as yf
+
+from tavan_modeli import tavan_fiyati, tavana_ulasti
+from veri_kaynaklari import VeriKaynaklari
 
 CACHE_FILE = os.environ.get("PIYASA_TARAMA_CACHE", "piyasa_tarama_cache.json")
+SEMBOL_CACHE_FILE = os.environ.get("BIST_SEMBOL_CACHE", "bist_sembol_cache.json")
 CACHE_TTL = int(os.environ.get("PIYASA_TARAMA_CACHE_TTL", "300"))
-TIMEOUT = (3, 8)
+TIMEOUT = (10, 20)
 TRADINGVIEW_URL = "https://scanner.tradingview.com/turkey/scan"
+
+
+def gecikmeli_tavan_karsilastirmasi(adaylar: list[str]) -> dict[str, Any]:
+    """TradingView gecikmeli akisi ile seans ici, fiyat adimli tavan durumunu verir."""
+    sorgu = {
+        "symbols": {"query": {"types": ["stock"]}, "tickers": []},
+        "columns": ["name", "exchange", "close", "change", "high", "update_mode"],
+        "range": [0, 1000],
+    }
+    try:
+        cevap = requests.post(TRADINGVIEW_URL, json=sorgu, timeout=TIMEOUT)
+        cevap.raise_for_status()
+        satirlar = cevap.json().get("data", [])
+    except (requests.RequestException, ValueError, TypeError, KeyError):
+        return {
+            "durum": "VERI_YOK",
+            "kaynak": "TradingView",
+            "uyari": "Gecikmeli seans verisi alinamadi; kesin sonuc gunluk kapanistan sonra hesaplanir.",
+        }
+
+    aday_seti = {str(sembol).upper().replace(".IS", "") for sembol in adaylar if sembol}
+    piyasa = []
+    for satir in satirlar:
+        degerler = satir.get("d", [])
+        if len(degerler) < 6:
+            continue
+        sembol, borsa, fiyat, degisim, yuksek, guncelleme_modu = degerler
+        if borsa != "BIST" or not all(isinstance(deger, (int, float)) for deger in (fiyat, degisim, yuksek)):
+            continue
+        onceki_kapanis = float(fiyat) / (1 + float(degisim) / 100) if degisim > -100 else 0
+        if onceki_kapanis <= 0:
+            continue
+        piyasa.append({
+            "sembol": str(sembol),
+            "fiyat": round(float(fiyat), 2),
+            "degisim": round(float(degisim), 2),
+            "tavan_fiyati": tavan_fiyati(onceki_kapanis),
+            "tavanda": tavana_ulasti(onceki_kapanis, float(fiyat)),
+            "tavana_dokundu": tavana_ulasti(onceki_kapanis, float(yuksek)),
+            "aday": str(sembol) in aday_seti,
+            "guncelleme_modu": str(guncelleme_modu or ""),
+        })
+
+    gecikmeli = any(veri["guncelleme_modu"] == "delayed_streaming_900" for veri in piyasa)
+    return {
+        "durum": "SEANS_ICI_ON_SONUC",
+        "kaynak": "TradingView",
+        "veri_zamani": datetime.now().isoformat(timespec="seconds"),
+        "gecikme_dakika": 15 if gecikmeli else None,
+        "tavandaki_hisseler": [veri for veri in piyasa if veri["tavanda"]],
+        "aday_sonuclari": [veri for veri in piyasa if veri["aday"]],
+        "uyari": "Kesin performans sonucu gunluk kapanis verisi geldikten sonra hesaplanir.",
+    }
 
 
 def _yerel_liste() -> list[str]:
@@ -42,6 +98,23 @@ def _cache_yaz(veri: dict[str, Any]) -> None:
         pass
 
 
+def _sembol_cache_yukle() -> list[str]:
+    try:
+        with open(SEMBOL_CACHE_FILE, "r", encoding="utf-8") as dosya:
+            semboller = json.load(dosya)
+        return sorted({str(sembol).upper().replace(".IS", "") for sembol in semboller if sembol})
+    except (OSError, ValueError, TypeError):
+        return []
+
+
+def _sembol_cache_kaydet(semboller: list[str]) -> None:
+    try:
+        with open(SEMBOL_CACHE_FILE, "w", encoding="utf-8") as dosya:
+            json.dump(semboller, dosya, ensure_ascii=False, indent=2)
+    except OSError:
+        pass
+
+
 def sembolleri_al() -> list[str]:
     """TradingView Turkey tarayicisindan guncel BIST hisse sembollerini al."""
     sorgu = {
@@ -60,17 +133,19 @@ def sembolleri_al() -> list[str]:
             if sembol and sembol.isalnum() and 3 <= len(sembol) <= 6:
                 semboller.append(sembol)
         if len(semboller) >= 150:
-            return sorted(set(semboller))
+            sonuc = sorted(set(semboller))
+            _sembol_cache_kaydet(sonuc)
+            return sonuc
     except (requests.RequestException, ValueError, TypeError, KeyError):
         pass
-    return _yerel_liste()
+    return _sembol_cache_yukle() or _yerel_liste()
 
 
 def _toplu_veri_al(semboller: list[str]) -> list[dict[str, Any]]:
-    """Yahoo chart endpointinden sembolleri paralel ve kucuk veri setiyle tara."""
+    """Dogrulanmis OHLCV kaynaklarini paralel ve kucuk veri setiyle tara."""
     def tara(sembol: str) -> dict[str, Any] | None:
         try:
-            veri = yf.Ticker(f"{sembol}.IS").history(period="3mo", auto_adjust=True)
+            veri, kaynak_bilgisi = VeriKaynaklari().tarihsel_veri_al(sembol, periyot="3mo", auto_adjust=True)
             if veri is None or len(veri) < 20 or "Close" not in veri or "Volume" not in veri:
                 return None
             kapanis = veri["Close"].dropna().astype(float)
@@ -110,6 +185,8 @@ def _toplu_veri_al(semboller: list[str]) -> list[dict[str, Any]]:
             uygun_sinyaller = [olumlu for puan, olumlu in gecmis_sonuclar if puan >= 45]
             return {
                 "sembol": sembol,
+                "veri_kaynagi": kaynak_bilgisi["kaynak"],
+                "yedek_veri_kullanildi": kaynak_bilgisi["yedek_kullanildi"],
                 "fiyat": round(float(kapanis.iloc[-1]), 2),
                 "gunluk": round(float(gunluk), 2),
                 "getiri_5g": round(float(getiri_5g), 2),

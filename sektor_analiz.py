@@ -1,11 +1,12 @@
 """
 BIST Sektor Bazli Analiz
-Coklu veri kaynagi (Yahoo + Fallback)
+Coklu dogrulanmis veri kaynagi
 """
 
 from datetime import datetime
 from collections import defaultdict
-import random
+
+from veri_kaynaklari import hisse_veri_al
 
 
 HISSE_SEKTORLERI = {
@@ -55,37 +56,8 @@ def yahoo_veri_al(sembol):
         return None
 
 
-def fallback_veri_al(sembol):
-    sektor = HISSE_SEKTORLERI.get(sembol, "Diger")
-    sektor_trend = {
-        "Bankacilik": 0.5, "Havacilik": 0.3, "Otomotiv": 1.2,
-        "Enerji": -0.8, "Teknoloji": 0.7, "Madencilik": 1.5,
-        "Demir-Celik": -0.5, "Perakende": 0.4, "Holding": 0.2,
-    }
-    base = sektor_trend.get(sektor, 0)
-    sapma = random.uniform(-2.5, 2.5)
-    return {
-        "sembol": sembol,
-        "fiyat": random.uniform(20, 400),
-        "gunluk": base + sapma,
-        "kaynak": "Fallback"
-    }
-
-
 def guvenli_veri_al(sembol):
-    veri = yahoo_veri_al(sembol)
-    if veri:
-        return veri
-    try:
-        from veri_kaynaklari import VeriKaynaklari
-        alternatif = VeriKaynaklari()
-        for kaynak in (alternatif.stooq_veri, alternatif.twelve_data_veri):
-            veri = kaynak(sembol)
-            if veri:
-                return veri
-    except Exception:
-        pass
-    return fallback_veri_al(sembol)
+    return hisse_veri_al(sembol)
 
 
 def sektor_analiz_yap():

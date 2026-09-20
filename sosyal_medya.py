@@ -6,6 +6,7 @@ from html import unescape
 import re
 
 import feedparser
+import requests
 import yfinance as yf
 
 
@@ -23,6 +24,14 @@ SIRKET_ADLARI = {
 }
 POZITIF = ("artis", "yukselis", "rekor", "buyume", "kar", "temettu", "anlasma", "olumlu", "guclu")
 NEGATIF = ("dusus", "gerileme", "zarar", "satis", "borc", "sorusturma", "olumsuz", "risk", "ceza")
+KAP_OLAY_TURLERI = (
+    ("SOZLESME_IHALE", ("sozlesme", "ihale", "siparis", "anlasma"), 3),
+    ("FINANSAL_SONUCLAR", ("finansal rapor", "bilanco", "gelir tablosu", "kar", "zarar"), 2),
+    ("TEMETTU", ("temettu", "kar payi"), 2),
+    ("PAY_GERI_ALIM", ("pay geri alim", "geri alim"), 2),
+    ("SERMAYE", ("sermaye artirimi", "bedelli", "bedelsiz"), 1),
+    ("YAPTIRIM_RISK", ("ceza", "sorusturma", "tedbir", "dava"), -3),
+)
 
 
 def _normalize(metin):
@@ -51,6 +60,16 @@ def sentiment_hesapla(metin):
     if negatif > pozitif:
         return "NEGATIF", negatif - pozitif
     return "NOTR", 0
+
+
+def kap_olayini_siniflandir(baslik):
+    temiz = _normalize(baslik)
+    sentiment, sentiment_skoru = sentiment_hesapla(baslik)
+    for olay_turu, anahtarlar, taban_etki in KAP_OLAY_TURLERI:
+        if any(anahtar in temiz for anahtar in anahtarlar):
+            yon = -1 if sentiment == "NEGATIF" else 1
+            return olay_turu, max(-5, min(5, taban_etki * yon + sentiment_skoru * yon))
+    return "DIGER", sentiment_skoru if sentiment == "POZITIF" else -sentiment_skoru
 
 
 def _rss_haberleri_al(kaynak, url, anahtarlar, limit=10):
@@ -86,6 +105,40 @@ def google_news_rss(sembol, anahtarlar):
 
 def kap_rss(sembol, anahtarlar):
     return _rss_haberleri_al("KAP", "https://www.kap.org.tr/tr/rss/bildirim", anahtarlar)
+
+
+def kap_aday_ozeti(semboller, timeout=8):
+    """KAP akisini tek istekte alip verilen sembollerle eslestirir."""
+    temiz_semboller = [str(sembol).upper().replace(".IS", "").strip() for sembol in semboller]
+    sonuc = {
+        sembol: {"adet": 0, "net_sinyal": 0, "basliklar": [], "olaylar": []}
+        for sembol in temiz_semboller
+    }
+    try:
+        yanit = requests.get("https://www.kap.org.tr/tr/rss/bildirim", timeout=timeout)
+        yanit.raise_for_status()
+        akis = feedparser.parse(yanit.content)
+    except Exception:
+        return sonuc
+    for kayit in akis.entries[:100]:
+        baslik = re.sub(r"<[^>]+>", "", kayit.get("title", "")).strip()
+        baslik_norm = _normalize(baslik)
+        for sembol in temiz_semboller:
+            if not any(_normalize(anahtar) in baslik_norm for anahtar in anahtar_kelime_uret(sembol)):
+                continue
+            sentiment, skor = sentiment_hesapla(baslik)
+            isaretli_skor = skor if sentiment == "POZITIF" else -skor if sentiment == "NEGATIF" else 0
+            olay_turu, olay_etkisi = kap_olayini_siniflandir(baslik)
+            sonuc[sembol]["adet"] += 1
+            sonuc[sembol]["net_sinyal"] += olay_etkisi if olay_turu != "DIGER" else isaretli_skor
+            sonuc[sembol]["basliklar"].append(baslik)
+            sonuc[sembol]["olaylar"].append({
+                "tur": olay_turu,
+                "etki": olay_etkisi,
+                "baslik": baslik,
+                "yayin_zamani": kayit.get("published") or kayit.get("updated"),
+            })
+    return sonuc
 
 
 def yahoo_piyasa_ozeti(sembol):
