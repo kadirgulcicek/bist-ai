@@ -7,6 +7,7 @@ veri kaynagi olmadiginda tahmin edilmez.
 
 import json
 import os
+import sqlite3
 from datetime import datetime, timedelta
 import re
 
@@ -18,10 +19,85 @@ from bs4 import BeautifulSoup
 HTTP_TIMEOUT = 10
 CACHE_DOSYA = "takas_cache.json"
 CACHE_SURESI_GUN = 7
+VARSAYILAN_DB = os.environ.get("PIYASA_VERI_DB", "data/piyasa_verileri.db")
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     "Accept-Language": "tr-TR,tr;q=0.9,en;q=0.8",
 }
+YABANCI_ORAN_SERVISI = (
+    "https://www.isyatirim.com.tr/_layouts/15/IsYatirim.Website/"
+    "StockInfo/CompanyInfoAjax.aspx/GetYabanciOranlarXHR"
+)
+
+
+def son_bir_ay_yabanci_liderleri(adet=15, db=VARSAYILAN_DB):
+    """Gercek yabanci payi artisini ayni donemin fiyat getirisiyle siralar."""
+    try:
+        with sqlite3.connect(db) as baglanti:
+            bitis_satiri = baglanti.execute(
+                "SELECT MAX(tarih) FROM gunluk_fiyat"
+            ).fetchone()
+            bitis = bitis_satiri[0] if bitis_satiri else None
+            if not bitis:
+                return []
+            baslangic_satiri = baglanti.execute(
+                "SELECT MAX(tarih) FROM gunluk_fiyat WHERE tarih <= date(?, '-1 month')",
+                (bitis,),
+            ).fetchone()
+            baslangic = baslangic_satiri[0] if baslangic_satiri else None
+            if not baslangic:
+                return []
+            fiyatlar = {
+                sembol: (ilk_fiyat, son_fiyat)
+                for sembol, ilk_fiyat, son_fiyat in baglanti.execute(
+                    """
+                    SELECT sembol,
+                           MAX(CASE WHEN tarih = ? THEN kapanis END),
+                           MAX(CASE WHEN tarih = ? THEN kapanis END)
+                    FROM gunluk_fiyat
+                    WHERE tarih IN (?, ?)
+                    GROUP BY sembol
+                    """,
+                    (baslangic, bitis, baslangic, bitis),
+                )
+                if ilk_fiyat and son_fiyat
+            }
+
+        cevap = requests.post(
+            YABANCI_ORAN_SERVISI,
+            json={
+                "baslangicTarih": datetime.fromisoformat(baslangic).strftime("%d-%m-%Y"),
+                "bitisTarihi": datetime.fromisoformat(bitis).strftime("%d-%m-%Y"),
+                "sektor": None,
+                "endeks": "09",
+                "hisse": None,
+            },
+            headers={**HEADERS, "Referer": "https://www.isyatirim.com.tr/"},
+            timeout=HTTP_TIMEOUT,
+        )
+        cevap.raise_for_status()
+        kayitlar = cevap.json().get("d") or []
+    except (OSError, sqlite3.Error, requests.RequestException, TypeError, ValueError):
+        return []
+
+    liderler = []
+    for kayit in kayitlar:
+        try:
+            sembol = str(kayit["HISSE_KODU"]).upper()
+            degisim = float(kayit["DEGISIM"])
+            ilk_fiyat, son_fiyat = fiyatlar[sembol]
+            if degisim <= 0:
+                continue
+            liderler.append({
+                "sembol": sembol,
+                "yabanci_baslangic": round(float(kayit["YAB_ORAN_START"]), 2),
+                "yabanci_son": round(float(kayit["YAB_ORAN_END"]), 2),
+                "yabanci_degisim": round(degisim, 2),
+                "fiyat_getirisi": round((son_fiyat / ilk_fiyat - 1) * 100, 2),
+            })
+        except (KeyError, TypeError, ValueError, ZeroDivisionError):
+            continue
+    return sorted(liderler, key=lambda kayit: kayit["yabanci_degisim"], reverse=True)[:adet]
 
 
 def _onbellek_yukle():

@@ -41,7 +41,7 @@ from sosyal_medya import sosyal_medya_analiz
 from halka_arz import halka_arz_ozeti
 from temel_analiz import temel_analiz
 from teknik_analiz import hisse_teknik_analiz
-from takas_analiz import takas_analiz
+from takas_analiz import son_bir_ay_yabanci_liderleri, takas_analiz
 
 
 def portfoy_risk_hesapla(portfoy_hisseler):
@@ -2243,12 +2243,17 @@ def takas_analiz_sayfasi():
     except Exception:
         app.logger.exception("Takas analizi verisi alinamadi: %s", sembol)
         analiz = None
+    try:
+        yabanci_liderleri = son_bir_ay_yabanci_liderleri()
+    except Exception:
+        app.logger.exception("Yabanci payi liderleri alinamadi")
+        yabanci_liderleri = []
 
     return render_template_string("""
     <!DOCTYPE html>
     <html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Takas Analizi - {{ sembol }}</title><style>
-    body{font-family:Arial;background:#1a1a2e;color:#fff;margin:0;padding:15px}.container{max-width:1050px;margin:auto}.header,.card{background:#16213e;border-radius:8px;padding:18px;margin-bottom:15px}.header h1{margin:0;color:#e94560;font-size:22px}.menu{display:flex;gap:8px;margin:15px 0;flex-wrap:wrap}.menu a{flex:1;min-width:90px;padding:8px;background:#0f3460;color:#fff;text-decoration:none;border-radius:5px;text-align:center;font-size:13px}.menu a.active{background:#e94560}form{display:flex;gap:8px}input,button{padding:10px;border-radius:6px;border:0}input{flex:1;background:#0f3460;color:#fff;border:1px solid #35506d}button{background:#e94560;color:#fff;font-weight:bold;cursor:pointer}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}.metric{background:#1e293b;padding:14px;border-radius:6px}.metric small{color:#b0bec5;display:block}.metric strong{font-size:20px;display:block;margin-top:6px}.note{color:#b0bec5;font-size:13px;line-height:1.55}.error{color:#ffb4b4}
+    body{font-family:Arial;background:#1a1a2e;color:#fff;margin:0;padding:15px}.container{max-width:1050px;margin:auto}.header,.card{background:#16213e;border-radius:8px;padding:18px;margin-bottom:15px}.header h1{margin:0;color:#e94560;font-size:22px}.menu{display:flex;gap:8px;margin:15px 0;flex-wrap:wrap}.menu a{flex:1;min-width:90px;padding:8px;background:#0f3460;color:#fff;text-decoration:none;border-radius:5px;text-align:center;font-size:13px}.menu a.active{background:#e94560}form{display:flex;gap:8px}input,button{padding:10px;border-radius:6px;border:0}input{flex:1;background:#0f3460;color:#fff;border:1px solid #35506d}button{background:#e94560;color:#fff;font-weight:bold;cursor:pointer}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}.metric{background:#1e293b;padding:14px;border-radius:6px}.metric small{color:#b0bec5;display:block}.metric strong{font-size:20px;display:block;margin-top:6px}.note{color:#b0bec5;font-size:13px;line-height:1.55}.error{color:#ffb4b4}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;min-width:650px}th,td{padding:10px;border-bottom:1px solid #334155;text-align:right}th:first-child,td:first-child{text-align:left}th{color:#b0bec5;font-size:12px;text-transform:uppercase}td a{color:#fff;font-weight:bold;text-decoration:none}.positive{color:#4ade80}.negative{color:#fb7185}
     </style></head><body><div class="container"><div class="header"><h1>Takas Analizi</h1><p>{{ sembol }} sahiplik ve hacim ozeti</p></div><div class="menu"></div>
     <div class="card"><form method="get"><input name="sembol" value="{{ sembol }}" placeholder="Ornek: THYAO"><button type="submit">Analiz Et</button></form></div>
     {% if analiz %}<div class="card"><h2>{{ analiz.sembol }} | {{ analiz.degerlendirme }}</h2><div class="grid">
@@ -2260,8 +2265,13 @@ def takas_analiz_sayfasi():
     <div class="metric"><small>Serbest dolasim</small><strong>{% if analiz.free_float_oran is not none %}%{{ analiz.free_float_oran }}{% elif analiz.free_float %}{{ '{:,.0f}'.format(analiz.free_float) }}{% else %}Veri yok{% endif %}</strong><small>{% if analiz.free_float %}{{ '{:,.0f}'.format(analiz.free_float) }} adet{% endif %}</small></div>
     </div></div>
     {% else %}<div class="card error">{{ sembol }} icin yeterli sahiplik veya hacim verisi alinamadi. Lutfen daha sonra tekrar deneyin.</div>{% endif %}
+    <div class="card"><h2>Son 1 Ay Yabanci Payi Artis Liderleri</h2>
+    <p class="note">Is Yatirim yabanci oranlari ile yerel kapanis verileri ayni tarih araliginda karsilastirilir. Yabanci payi artisi tek basina alim sinyali degildir.</p>
+    {% if yabanci_liderleri %}<div class="table-wrap"><table><thead><tr><th>Hisse</th><th>Baslangic</th><th>Son</th><th>Degisim</th><th>Fiyat getirisi</th></tr></thead><tbody>
+    {% for lider in yabanci_liderleri %}<tr><td><a href="{{ url_for('takas_analiz_sayfasi', sembol=lider.sembol) }}">{{ lider.sembol }}</a></td><td>%{{ lider.yabanci_baslangic }}</td><td>%{{ lider.yabanci_son }}</td><td class="positive">+{{ lider.yabanci_degisim }} puan</td><td class="{{ 'positive' if lider.fiyat_getirisi >= 0 else 'negative' }}">{{ '%+.2f'|format(lider.fiyat_getirisi) }}%</td></tr>{% endfor %}
+    </tbody></table></div>{% else %}<p class="note">Lider verisi su anda alinamadi.</p>{% endif %}</div>
     </div></body></html>
-    """, sembol=sembol, analiz=analiz)
+    """, sembol=sembol, analiz=analiz, yabanci_liderleri=yabanci_liderleri)
 
 
 @app.route("/temel")
